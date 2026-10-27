@@ -153,7 +153,7 @@
   // ---------- player update ----------
   function updatePlayer(p, input, dt) {
     if (p.ash > 0) { p.ash -= dt; input = { left: 0, right: 0, jump: 0, kick: 0 }; } // frozen in ash
-    const speed = p === p2 ? 250 : 300;
+    const speed = p === p2 ? 175 : 210;
     p.vx = (input.right - input.left) * speed;
     if (input.jump && p.onGround) { p.vy = -620; p.onGround = false; }
     if (input.kick && p.kickCd <= 0) { p.kickT = 0.22; p.kickCd = 0.35; p.hit = false; }
@@ -167,7 +167,7 @@
     collideCircle(p.x, p.y + p.r - 4, 14, 0.4, p.vx, p.vy);  // body
     const f = footPos(p);
     if (p.kickT > 0 && !p.hit && Math.hypot(ball.x - f.x, ball.y - f.y) < ball.r + 26) {
-      ball.vx = p.dir * 720 + p.vx * 0.4; ball.vy = -480; p.hit = true;
+      ball.vx = p.dir * 500 + p.vx * 0.4; ball.vy = -380; p.hit = true;
     } else collideCircle(f.x, f.y, 10, 0.4, p.vx, p.vy);
   }
   function separatePlayers() {
@@ -209,7 +209,7 @@
 
     const steps = 3, sdt = dt / steps;
     for (let i = 0; i < steps; i++) {
-      ball.vy += GRAV * 0.75 * sdt;
+      ball.vy += GRAV * 0.5 * sdt;
       ball.x += ball.vx * sdt; ball.y += ball.vy * sdt;
       ball.spin += ball.vx * sdt / ball.r;
       if (ball.y > GROUND - ball.r) { ball.y = GROUND - ball.r; ball.vy *= -0.65; ball.vx *= 0.985; if (Math.abs(ball.vy) < 40) ball.vy = 0; }
@@ -220,7 +220,7 @@
       collideRect(W - GOAL_W - 6, GOAL_TOP - BAR_H, GOAL_W + 6, BAR_H);
       playerBall(p1); playerBall(p2);
     }
-    const maxV = 1100, v = Math.hypot(ball.vx, ball.vy);
+    const maxV = 750, v = Math.hypot(ball.vx, ball.vy);
     if (v > maxV) { ball.vx *= maxV / v; ball.vy *= maxV / v; }
 
     if (ball.y > GOAL_TOP && ball.x < GOAL_W - ball.r * 0.3) goal(1);
@@ -252,7 +252,7 @@
       }
     }
     const dx = ball.x - b.x, dy = ball.y - (GROUND - 14), d = Math.hypot(dx, dy);
-    if (d < BOMB_RADIUS * 1.4 && d > 0) { ball.vx += dx / d * 600; ball.vy += dy / d * 600 - 200; }
+    if (d < BOMB_RADIUS * 1.4 && d > 0) { ball.vx += dx / d * 420; ball.vy += dy / d * 420 - 150; }
   }
   function drawBombs() {
     for (const b of bombs) {
