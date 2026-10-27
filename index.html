@@ -2,444 +2,84 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1b5e20">
-<title>Head Soccer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14112b">
+<meta name="description" content="Free, quick games you can play in your browser on your phone or computer.">
+<title>Duryodhan Arcade</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  html, body { margin: 0; height: 100%; background: #0d2b12; overflow: hidden; touch-action: none; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
-  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  canvas { display: block; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,.5); }
-  .ctrl { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 12px; z-index: 5; }
-  #left { left: calc(14px + env(safe-area-inset-left)); }
-  #right { right: calc(14px + env(safe-area-inset-right)); }
-  .btn { width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.55);
-         display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; }
-  .btn.on { background: rgba(255,255,255,.45); }
-  #kick { background: rgba(255,82,82,.35); }
-  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-             background: rgba(0,0,0,.6); z-index: 10; text-align: center; padding: 16px; }
-  #overlay h1 { font-size: clamp(32px, 8vw, 56px); margin: 0 0 8px; letter-spacing: 2px; }
-  #overlay p { margin: 6px 0; opacity: .9; max-width: 420px; }
-  #play { margin-top: 16px; padding: 14px 40px; font-size: 22px; font-weight: 700; border: 0; border-radius: 40px; background: #ffca28; color: #222; }
-  #selfieRow { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-  #selfieRow button { padding: 10px 18px; font-size: 16px; font-weight: 600; border: 2px solid #fff; border-radius: 30px; background: transparent; color: #fff; }
-  #facePrev { width: 56px; height: 56px; border-radius: 50%; border: 3px solid #42a5f5; object-fit: cover; display: none; }
-  #overlay { overflow-y: auto; touch-action: pan-y; }
-  @media (max-height: 500px) {
-    #overlay h1 { font-size: 30px; margin-bottom: 2px; }
-    #overlay p { margin: 3px 0; font-size: 13px !important; }
-    #selfieRow { margin-top: 6px; }
-    #selfieRow button { padding: 6px 14px; font-size: 14px; }
-    #facePrev { width: 40px; height: 40px; }
-    #play { margin-top: 8px; padding: 10px 36px; font-size: 18px; }
+  :root {
+    --bg: #14112b; --bg2: #1e1a3d; --card: #24204a; --text: #f4f2ff; --muted: #a8a3cc; --accent: #ffca28; --line: rgba(255,255,255,.08);
   }
-  @media (hover: none) { .kbd { display: none; } }
-  #rotate { display: none; position: fixed; top: 8px; left: 0; right: 0; text-align: center; font-size: 13px; opacity: .8; z-index: 6; }
-  @media (orientation: portrait) and (max-width: 700px) { #rotate { display: block; } }
-  @media (hover: hover) and (pointer: fine) { .ctrl { display: none; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: radial-gradient(1200px 600px at 50% -200px, #2f2870 0%, var(--bg) 60%) fixed, var(--bg);
+         color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  header { padding: calc(28px + env(safe-area-inset-top)) 0 8px; display: flex; align-items: center; gap: 12px; }
+  .logo { font-size: 30px; }
+  .brand { font-weight: 800; font-size: 20px; letter-spacing: .5px; }
+  .hero { padding: 32px 0 28px; }
+  .hero h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.05; margin: 0 0 12px; letter-spacing: -.5px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 17px; margin: 0; max-width: 520px; line-height: 1.5; }
+  .bar { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 16px; }
+  .bar h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 0; font-weight: 700; }
+  .count { color: var(--muted); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; padding-bottom: 48px; }
+  .card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+          text-decoration: none; color: inherit; transition: transform .15s ease, box-shadow .15s ease; }
+  .card:hover, .card:focus-visible { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(0,0,0,.35); outline: none; }
+  .card:active { transform: scale(.98); }
+  .art { aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; font-size: 72px; position: relative; }
+  .art::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.22), transparent 55%); }
+  .body { padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .body h3 { margin: 0; font-size: 20px; }
+  .body p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; flex: 1; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-size: 12px; padding: 3px 9px; border-radius: 20px; background: rgba(255,255,255,.08); color: var(--muted); }
+  .play { margin-top: 6px; align-self: flex-start; background: var(--accent); color: #1a1a1a; font-weight: 800; padding: 9px 22px; border-radius: 30px; font-size: 15px; }
+  .soon { border-style: dashed; border-color: rgba(255,255,255,.18); background: transparent; align-items: center; justify-content: center;
+          text-align: center; padding: 32px 16px; color: var(--muted); min-height: 220px; }
+  .soon .big { font-size: 40px; margin-bottom: 6px; }
+  footer { border-top: 1px solid var(--line); padding: 20px 0 calc(28px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; text-align: center; }
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="c"></canvas></div>
-<div id="rotate">↻ Rotate your phone sideways for a bigger field</div>
-<div class="ctrl" id="left">
-  <div class="btn" data-k="left">◀</div>
-  <div class="btn" data-k="right">▶</div>
-</div>
-<div class="ctrl" id="right">
-  <div class="btn" id="kick" data-k="kick">⚽</div>
-  <div class="btn" data-k="jump">▲</div>
-</div>
-<div id="overlay">
-  <h1>HEAD SOCCER</h1>
-  <p id="msg">You are <b style="color:#42a5f5">Blue</b>. First to 5 goals or most goals in 90 seconds wins.</p>
-  <p style="font-size:14px">Phone: ◀ ▶ move, ▲ jump, ⚽ kick<span class="kbd"><br>Keyboard: A/D or ←/→ move, W/↑ jump, Space kick</span></p>
-  <p style="font-size:14px">💣 Watch out for falling bombs! Get caught in the blast and you're covered in ash and frozen for 5 seconds.</p>
-  <div id="selfieRow">
-    <img id="facePrev" alt="Your face">
-    <button id="selfieBtn">📸 Take selfie</button>
-    <button id="clearFace" style="display:none">✕</button>
+  <div class="wrap">
+    <header><span class="logo">🎮</span><span class="brand">Duryodhan Arcade</span></header>
+    <section class="hero">
+      <h1>Quick games.<br><span>Tap and play.</span></h1>
+      <p>Free games that run right in your browser, on your phone or computer. Nothing to download.</p>
+    </section>
+    <div class="bar"><h2>Games</h2><span class="count" id="count"></span></div>
+    <main class="grid" id="grid"></main>
   </div>
-  <input type="file" id="selfieIn" accept="image/*" capture="user" hidden>
-  <button id="play">PLAY</button>
-</div>
+  <footer>Made for fun · More games coming soon</footer>
+
+<script src="games.js"></script>
 <script>
-(() => {
-  const W = 800, H = 450, GROUND = 390, GRAV = 1500;
-  const GOAL_W = 60, GOAL_TOP = 250, BAR_H = 8;
-  const WIN_SCORE = 5, MATCH_TIME = 90;
-  const BOMB_RADIUS = 95, ASH_TIME = 5;
-
-  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-  function resize() {
-    const s = Math.min(innerWidth / W, innerHeight / H);
-    const dpr = window.devicePixelRatio || 1;
-    cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
-    cv.width = W * s * dpr; cv.height = H * s * dpr;
-    ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+  const grid = document.getElementById('grid');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  for (const g of window.GAMES) {
+    const a = document.createElement('a');
+    a.className = 'card'; a.href = `/games/${g.slug}/`;
+    a.innerHTML = `
+      <div class="art" style="background: linear-gradient(135deg, ${g.color[0]}, ${g.color[1]})">${esc(g.emoji)}</div>
+      <div class="body">
+        <h3>${esc(g.title)}</h3>
+        <div class="tags">${g.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <p>${esc(g.description)}</p>
+        <span class="play">Play ▶</span>
+      </div>`;
+    grid.appendChild(a);
   }
-  addEventListener('resize', resize); resize();
-
-  // ---------- input ----------
-  const keys = { left: false, right: false, jump: false, kick: false };
-  const keyMap = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', Space: 'kick' };
-  addEventListener('keydown', e => { if (keyMap[e.code]) { keys[keyMap[e.code]] = true; e.preventDefault(); } });
-  addEventListener('keyup', e => { if (keyMap[e.code]) keys[keyMap[e.code]] = false; });
-  // multi-touch: recompute pressed buttons from all active touches
-  const btns = [...document.querySelectorAll('.btn')];
-  function updateTouches(e) {
-    e.preventDefault();
-    const pressed = new Set();
-    for (const t of e.touches) {
-      for (const b of btns) {
-        const r = b.getBoundingClientRect(), pad = 14;
-        if (t.clientX > r.left - pad && t.clientX < r.right + pad && t.clientY > r.top - pad && t.clientY < r.bottom + pad) pressed.add(b.dataset.k);
-      }
-    }
-    for (const b of btns) { const on = pressed.has(b.dataset.k); keys[b.dataset.k] = on; b.classList.toggle('on', on); }
-  }
-  ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, e => {
-    if (e.target.closest('#overlay')) return;
-    updateTouches(e);
-  }, { passive: false }));
-
-  // ---------- entities ----------
-  function makePlayer(x, dir, color, skin) {
-    return { x, y: GROUND - 34, vx: 0, vy: 0, r: 34, dir, color, skin, kickT: 0, kickCd: 0, onGround: true, startX: x, ash: 0 };
-  }
-  const p1 = makePlayer(200, 1, '#1e88e5', '#ffcc99');
-  const p2 = makePlayer(600, -1, '#e53935', '#e0a97a');
-  const ball = { x: W / 2, y: 150, vx: 0, vy: 0, r: 15, spin: 0 };
-
-  let score = [0, 0], timeLeft = MATCH_TIME, state = 'menu', pauseT = 0, banner = '';
-  let bombs = [], blasts = [], bombTimer = 0, shake = 0;
-  const nextBombDelay = () => 3 + Math.random() * 5;
-
-  function resetPositions(towards) {
-    for (const p of [p1, p2]) { p.x = p.startX; p.y = GROUND - p.r; p.vx = p.vy = 0; p.kickT = 0; p.ash = 0; }
-    bombs = []; blasts = []; bombTimer = nextBombDelay();
-    ball.x = W / 2; ball.y = 140; ball.vy = 0; ball.vx = towards * 60; ball.spin = 0;
-  }
-
-  // ---------- physics helpers ----------
-  function collideCircle(cx, cy, cr, bounce, cvx = 0, cvy = 0) {
-    const dx = ball.x - cx, dy = ball.y - cy, d = Math.hypot(dx, dy), min = cr + ball.r;
-    if (d >= min || d === 0) return false;
-    const nx = dx / d, ny = dy / d;
-    ball.x = cx + nx * min; ball.y = cy + ny * min;
-    const rvx = ball.vx - cvx, rvy = ball.vy - cvy, dot = rvx * nx + rvy * ny;
-    if (dot < 0) { ball.vx -= (1 + bounce) * dot * nx; ball.vy -= (1 + bounce) * dot * ny; }
-    return true;
-  }
-  function collideRect(rx, ry, rw, rh) {
-    const qx = Math.max(rx, Math.min(ball.x, rx + rw)), qy = Math.max(ry, Math.min(ball.y, ry + rh));
-    const dx = ball.x - qx, dy = ball.y - qy, d = Math.hypot(dx, dy);
-    if (d >= ball.r) return;
-    let nx, ny;
-    if (d === 0) { nx = 0; ny = ball.y < ry + rh / 2 ? -1 : 1; } else { nx = dx / d; ny = dy / d; }
-    ball.x = qx + nx * ball.r; ball.y = qy + ny * ball.r;
-    const dot = ball.vx * nx + ball.vy * ny;
-    if (dot < 0) { ball.vx -= 1.7 * dot * nx; ball.vy -= 1.7 * dot * ny; }
-  }
-  function footPos(p) {
-    // foot swings forward & up while kicking
-    const a = p.kickT > 0 ? Math.sin((1 - p.kickT / 0.22) * Math.PI) : 0;
-    return { x: p.x + p.dir * (14 + 26 * a), y: p.y + p.r + 2 - 22 * a };
-  }
-
-  // ---------- player update ----------
-  function updatePlayer(p, input, dt) {
-    if (p.ash > 0) { p.ash -= dt; input = { left: 0, right: 0, jump: 0, kick: 0 }; } // frozen in ash
-    const speed = p === p2 ? 175 : 210;
-    p.vx = (input.right - input.left) * speed;
-    if (input.jump && p.onGround) { p.vy = -620; p.onGround = false; }
-    if (input.kick && p.kickCd <= 0) { p.kickT = 0.22; p.kickCd = 0.35; p.hit = false; }
-    p.kickT = Math.max(0, p.kickT - dt); p.kickCd -= dt;
-    p.vy += GRAV * dt; p.x += p.vx * dt; p.y += p.vy * dt;
-    if (p.y > GROUND - p.r - 6) { p.y = GROUND - p.r - 6; p.vy = 0; p.onGround = true; }
-    p.x = Math.max(GOAL_W + p.r - 10, Math.min(W - GOAL_W - p.r + 10, p.x));
-  }
-  function playerBall(p) {
-    collideCircle(p.x, p.y, p.r, 0.5, p.vx, p.vy);           // head
-    collideCircle(p.x, p.y + p.r - 4, 14, 0.4, p.vx, p.vy);  // body
-    const f = footPos(p);
-    if (p.kickT > 0 && !p.hit && Math.hypot(ball.x - f.x, ball.y - f.y) < ball.r + 26) {
-      ball.vx = p.dir * 500 + p.vx * 0.4; ball.vy = -380; p.hit = true;
-    } else collideCircle(f.x, f.y, 10, 0.4, p.vx, p.vy);
-  }
-  function separatePlayers() {
-    const dx = p2.x - p1.x, dy = p2.y - p1.y, d = Math.hypot(dx, dy), min = p1.r + p2.r;
-    if (d < min && d > 0) { const o = (min - d) / 2, nx = dx / d; p1.x -= nx * o; p2.x += nx * o; }
-  }
-
-  // ---------- AI ----------
-  const ai = { left: false, right: false, jump: false, kick: false, think: 0 };
-  function updateAI(dt) {
-    ai.think -= dt; if (ai.think > 0) return; ai.think = 0.09; // reaction delay
-    // predict ball x a little ahead
-    const px = ball.x + ball.vx * 0.15;
-    const defending = ball.x > W / 2 || ball.vx > 150;
-    // stand slightly to the right of the ball (goal side) so we push it left
-    let target = px + 28;
-    if (!defending && ball.x < W * 0.35) target = Math.max(W * 0.55, px + 28);
-    // dodge any bomb that will land near us
-    for (const b of bombs) if (Math.abs(b.x - p2.x) < BOMB_RADIUS + 20 && Math.random() < 0.8) {
-      target = b.x > p2.x ? b.x - BOMB_RADIUS - 50 : b.x + BOMB_RADIUS + 50;
-    }
-    ai.left = p2.x > target + 10; ai.right = p2.x < target - 10;
-    const dx = ball.x - p2.x, dy = ball.y - p2.y;
-    ai.jump = Math.abs(dx) < 70 && dy < -40 && dy > -170 && Math.random() < 0.6;
-    ai.kick = dx < 10 && dx > -75 && Math.abs(ball.y - (p2.y + p2.r)) < 55 && Math.random() < 0.5;
-  }
-
-  // ---------- main update ----------
-  function update(dt) {
-    if (state === 'goal') { pauseT -= dt; if (pauseT <= 0) { if (checkEnd()) return; state = 'play'; } return; }
-    if (state !== 'play') return;
-    timeLeft -= dt;
-    if (timeLeft <= 0) { timeLeft = 0; endGame(); return; }
-
-    updatePlayer(p1, keys, dt);
-    updateAI(dt); updatePlayer(p2, ai, dt);
-    separatePlayers();
-    updateBombs(dt);
-
-    const steps = 3, sdt = dt / steps;
-    for (let i = 0; i < steps; i++) {
-      ball.vy += GRAV * 0.5 * sdt;
-      ball.x += ball.vx * sdt; ball.y += ball.vy * sdt;
-      ball.spin += ball.vx * sdt / ball.r;
-      if (ball.y > GROUND - ball.r) { ball.y = GROUND - ball.r; ball.vy *= -0.65; ball.vx *= 0.985; if (Math.abs(ball.vy) < 40) ball.vy = 0; }
-      if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.6; }
-      if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx) * 0.6; }
-      if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx) * 0.6; }
-      collideRect(0, GOAL_TOP - BAR_H, GOAL_W + 6, BAR_H);
-      collideRect(W - GOAL_W - 6, GOAL_TOP - BAR_H, GOAL_W + 6, BAR_H);
-      playerBall(p1); playerBall(p2);
-    }
-    const maxV = 750, v = Math.hypot(ball.vx, ball.vy);
-    if (v > maxV) { ball.vx *= maxV / v; ball.vy *= maxV / v; }
-
-    if (ball.y > GOAL_TOP && ball.x < GOAL_W - ball.r * 0.3) goal(1);
-    else if (ball.y > GOAL_TOP && ball.x > W - GOAL_W + ball.r * 0.3) goal(0);
-  }
-  // ---------- bombs ----------
-  function updateBombs(dt) {
-    bombTimer -= dt;
-    if (bombTimer <= 0) {
-      bombs.push({ x: GOAL_W + 40 + Math.random() * (W - 2 * GOAL_W - 80), y: -20, vy: 80 + Math.random() * 80, fuse: 0 });
-      bombTimer = nextBombDelay();
-    }
-    for (const b of bombs) {
-      b.vy += 500 * dt; b.y += b.vy * dt; b.fuse += dt;
-      if (b.y >= GROUND - 14) explode(b);
-    }
-    bombs = bombs.filter(b => !b.done);
-    for (const e of blasts) e.t += dt;
-    blasts = blasts.filter(e => e.t < 0.6);
-    shake = Math.max(0, shake - dt);
-  }
-  function explode(b) {
-    b.done = true; shake = 0.35;
-    blasts.push({ x: b.x, y: GROUND - 14, t: 0 });
-    for (const p of [p1, p2]) {
-      if (Math.hypot(p.x - b.x, p.y - (GROUND - 14)) < BOMB_RADIUS + p.r * 0.5) {
-        p.ash = ASH_TIME; p.vy = -350; p.onGround = false;
-        if (p === p1 && navigator.vibrate) navigator.vibrate(250);
-      }
-    }
-    const dx = ball.x - b.x, dy = ball.y - (GROUND - 14), d = Math.hypot(dx, dy);
-    if (d < BOMB_RADIUS * 1.4 && d > 0) { ball.vx += dx / d * 420; ball.vy += dy / d * 420 - 150; }
-  }
-  function drawBombs() {
-    for (const b of bombs) {
-      // landing warning marker
-      ctx.fillStyle = `rgba(255,0,0,${0.15 + 0.15 * Math.sin(b.fuse * 20)})`;
-      ctx.beginPath(); ctx.ellipse(b.x, GROUND, BOMB_RADIUS, 10, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.arc(b.x, b.y, 14, 0, 7); ctx.fill();
-      ctx.fillStyle = '#555'; ctx.fillRect(b.x - 4, b.y - 20, 8, 7);
-      ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x, b.y - 20); ctx.quadraticCurveTo(b.x + 8, b.y - 28, b.x + 4, b.y - 32); ctx.stroke();
-      ctx.fillStyle = Math.sin(b.fuse * 40) > 0 ? '#ffeb3b' : '#ff5722';
-      ctx.beginPath(); ctx.arc(b.x + 4, b.y - 33, 4, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(b.x - 5, b.y - 5, 4, 0, 7); ctx.fill();
-    }
-    for (const e of blasts) {
-      const k = e.t / 0.6, r = BOMB_RADIUS * (0.4 + k);
-      ctx.fillStyle = `rgba(255,152,0,${0.8 * (1 - k)})`; ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(255,235,59,${0.9 * (1 - k)})`; ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.55, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(80,80,80,${0.6 * (1 - k)})`;
-      for (let i = 0; i < 8; i++) { const a = i * 0.785; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * r * 0.9, e.y + Math.sin(a) * r * 0.6, 14 * (1 - k) + 4, 0, 7); ctx.fill(); }
-    }
-  }
-
-  function goal(who) {
-    score[who]++; state = 'goal'; pauseT = 1.6;
-    banner = who === 0 ? 'GOAL!' : 'CPU SCORES';
-    if (navigator.vibrate) navigator.vibrate(who === 0 ? [60, 40, 60] : 120);
-    resetPositions(who === 0 ? 1 : -1);
-  }
-  function checkEnd() { if (score[0] >= WIN_SCORE || score[1] >= WIN_SCORE) { endGame(); return true; } return false; }
-  function endGame() {
-    state = 'over';
-    const [a, b] = score;
-    document.querySelector('#overlay h1').textContent = a > b ? 'YOU WIN! 🏆' : a < b ? 'YOU LOSE' : 'DRAW';
-    document.getElementById('msg').innerHTML = `Final score: <b>${a} – ${b}</b>`;
-    document.getElementById('play').textContent = 'PLAY AGAIN';
-    document.getElementById('overlay').style.display = 'flex';
-  }
-  function start() {
-    score = [0, 0]; timeLeft = MATCH_TIME; resetPositions(Math.random() < .5 ? 1 : -1);
-    state = 'play'; document.getElementById('overlay').style.display = 'none';
-  }
-  const playBtn = document.getElementById('play');
-  playBtn.addEventListener('click', start);
-
-  // ---------- selfie face ----------
-  let faceImg = null;
-  const facePrev = document.getElementById('facePrev'), clearFace = document.getElementById('clearFace');
-  const selfieIn = document.getElementById('selfieIn');
-  function setFace(url) {
-    if (!url) { faceImg = null; facePrev.style.display = clearFace.style.display = 'none'; return; }
-    const img = new Image();
-    img.onload = () => { faceImg = img; facePrev.src = url; facePrev.style.display = 'block'; clearFace.style.display = 'inline-block'; };
-    img.src = url;
-  }
-  document.getElementById('selfieBtn').addEventListener('click', () => selfieIn.click());
-  clearFace.addEventListener('click', () => { setFace(null); try { localStorage.removeItem('hs-face'); } catch (e) {} });
-  selfieIn.addEventListener('change', () => {
-    const file = selfieIn.files[0]; if (!file) return;
-    const src = new Image(), url = URL.createObjectURL(file);
-    src.onload = () => {
-      // crop the centre square (a bit above middle, where faces usually are) to 160x160
-      const size = Math.min(src.width, src.height), sx = (src.width - size) / 2, sy = Math.max(0, (src.height - size) / 2 - size * 0.08);
-      const c = document.createElement('canvas'); c.width = c.height = 160;
-      c.getContext('2d').drawImage(src, sx, sy, size, size, 0, 0, 160, 160);
-      URL.revokeObjectURL(url);
-      const data = c.toDataURL('image/jpeg', 0.85);
-      setFace(data);
-      try { localStorage.setItem('hs-face', data); } catch (e) {}
-    };
-    src.src = url; selfieIn.value = '';
-  });
-  try { setFace(localStorage.getItem('hs-face')); } catch (e) {}
-
-  // ---------- drawing ----------
-  function drawField() {
-    const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
-    sky.addColorStop(0, '#4fc3f7'); sky.addColorStop(1, '#b3e5fc');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND);
-    // crowd stand
-    ctx.fillStyle = '#37474f'; ctx.fillRect(0, 150, W, 70);
-    for (let i = 0; i < 60; i++) { ctx.fillStyle = ['#ef5350', '#42a5f5', '#ffee58', '#fff', '#66bb6a'][i % 5]; ctx.beginPath(); ctx.arc(8 + i * 13.4, 170 + (i % 3) * 16, 5, 0, 7); ctx.fill(); }
-    // grass
-    for (let i = 0; i < 10; i++) { ctx.fillStyle = i % 2 ? '#43a047' : '#4caf50'; ctx.fillRect(i * 80, GROUND - 170 + 0, 80, 170); }
-    ctx.fillStyle = '#2e7d32'; ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(W / 2, GROUND - 170); ctx.lineTo(W / 2, GROUND); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
-  }
-  function drawGoal(x, flip) {
-    ctx.save(); ctx.translate(x, 0); if (flip) ctx.scale(-1, 1);
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1;
-    for (let gx = 0; gx <= GOAL_W; gx += 10) { ctx.beginPath(); ctx.moveTo(gx, GOAL_TOP); ctx.lineTo(gx, GROUND); ctx.stroke(); }
-    for (let gy = GOAL_TOP; gy <= GROUND; gy += 10) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(GOAL_W, gy); ctx.stroke(); }
-    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, GOAL_TOP - BAR_H, GOAL_W + 6, BAR_H);
-    ctx.fillRect(GOAL_W, GOAL_TOP - BAR_H, 6, GROUND - GOAL_TOP + BAR_H);
-    ctx.restore();
-  }
-  function drawPlayer(p) {
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND, 30, 6, 0, 0, 7); ctx.fill();
-    // body
-    ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r, 18, 14, 0, 0, 7); ctx.fill();
-    // foot
-    const f = footPos(p);
-    ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.ellipse(f.x, f.y, 14, 8, p.dir * (p.kickT > 0 ? -0.5 : 0), 0, 7); ctx.fill();
-    // head
-    if (p === p1 && faceImg) {
-      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.clip();
-      ctx.drawImage(faceImg, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); ctx.restore();
-      ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.stroke();
-    } else drawCartoonFace(p);
-    if (p.ash > 0) drawAsh(p);
-  }
-  function drawCartoonFace(p) {
-    ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2; ctx.stroke();
-    // hair
-    ctx.fillStyle = p === p1 ? '#3e2723' : '#212121';
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
-    // headband
-    ctx.fillStyle = p.color; ctx.fillRect(p.x - p.r + 3, p.y - 16, p.r * 2 - 6, 7);
-    // eye looking at ball
-    const ex = p.x + p.dir * 14, ey = p.y - 2;
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, 7); ctx.fill();
-    const a = Math.atan2(ball.y - ey, ball.x - ex);
-    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex + Math.cos(a) * 3.5, ey + Math.sin(a) * 3.5, 4, 0, 7); ctx.fill();
-    // mouth
-    ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 3; ctx.beginPath();
-    ctx.arc(p.x + p.dir * 10, p.y + 14, 7, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
-  }
-  function drawAsh(p) {
-    // covered in ash: grey coat, soot blobs, smoke and countdown
-    ctx.fillStyle = 'rgba(90,90,90,.82)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r, 19, 15, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#333';
-    for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(p.x + Math.cos(i * 2.1) * 18, p.y + Math.sin(i * 1.7) * 16, 5, 0, 7); ctx.fill(); }
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x + p.dir * 14, p.y - 2, 5, 0, 7); ctx.fill();
-    const t = performance.now() / 300;
-    ctx.fillStyle = 'rgba(120,120,120,.5)';
-    for (let i = 0; i < 3; i++) { const k = (t + i / 3) % 1; ctx.beginPath(); ctx.arc(p.x - 10 + i * 10, p.y - p.r - k * 40, 6 + k * 6, 0, 7); ctx.fill(); }
-    ctx.font = 'bold 18px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
-    ctx.fillStyle = '#ff7043'; ctx.fillText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
-  }
-  function drawBall() {
-    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath();
-    ctx.ellipse(ball.x, GROUND, ball.r * Math.max(.3, 1 - (GROUND - ball.y) / 400), 4, 0, 0, 7); ctx.fill();
-    ctx.save(); ctx.translate(ball.x, ball.y); ctx.rotate(ball.spin);
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, ball.r, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = '#222';
-    ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = i * 1.2566 - 1.57; ctx.lineTo(Math.cos(a) * 6, Math.sin(a) * 6); } ctx.fill();
-    for (let i = 0; i < 5; i++) { const a = i * 1.2566 - 1.57; ctx.beginPath(); ctx.arc(Math.cos(a) * 13, Math.sin(a) * 13, 3.5, 0, 7); ctx.fill(); }
-    ctx.restore();
-  }
-  function drawHUD() {
-    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.roundRect(W / 2 - 110, 8, 220, 52, 12); ctx.fill();
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = 'bold 30px system-ui, sans-serif';
-    ctx.fillStyle = '#64b5f6'; ctx.fillText(score[0], W / 2 - 70, 35);
-    ctx.fillStyle = '#ef9a9a'; ctx.fillText(score[1], W / 2 + 70, 35);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui, sans-serif';
-    const t = Math.ceil(timeLeft); ctx.fillText(`${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, W / 2, 35);
-    ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.fillStyle = '#64b5f6'; ctx.fillText('YOU', W / 2 - 140, 35);
-    ctx.fillStyle = '#ef9a9a'; ctx.fillText('CPU', W / 2 + 140, 35);
-    if (state === 'goal') {
-      ctx.font = 'bold 64px system-ui, sans-serif'; ctx.lineWidth = 6; ctx.strokeStyle = '#000';
-      ctx.strokeText(banner, W / 2, H / 2 - 30); ctx.fillStyle = '#ffca28'; ctx.fillText(banner, W / 2, H / 2 - 30);
-    }
-  }
-  function draw() {
-    ctx.save();
-    if (shake > 0) ctx.translate((Math.random() - .5) * 16 * shake, (Math.random() - .5) * 16 * shake);
-    drawField(); drawGoal(0, false); drawGoal(W, true);
-    drawPlayer(p1); drawPlayer(p2); drawBall(); drawBombs();
-    ctx.restore(); drawHUD();
-  }
-
-  let last = performance.now();
-  function loop(now) {
-    const dt = Math.min(0.033, (now - last) / 1000); last = now;
-    update(dt); draw(); requestAnimationFrame(loop);
-  }
-  resetPositions(1);
-  requestAnimationFrame(loop);
-})();
+  const soon = document.createElement('div');
+  soon.className = 'card soon';
+  soon.innerHTML = '<div><div class="big">🕹️</div><b>More games coming soon</b></div>';
+  grid.appendChild(soon);
+  const n = window.GAMES.length;
+  document.getElementById('count').textContent = `${n} game${n === 1 ? '' : 's'}`;
 </script>
 </body>
 </html>
