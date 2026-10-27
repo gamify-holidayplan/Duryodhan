@@ -24,6 +24,19 @@
   #overlay h1 { font-size: clamp(32px, 8vw, 56px); margin: 0 0 8px; letter-spacing: 2px; }
   #overlay p { margin: 6px 0; opacity: .9; max-width: 420px; }
   #play { margin-top: 16px; padding: 14px 40px; font-size: 22px; font-weight: 700; border: 0; border-radius: 40px; background: #ffca28; color: #222; }
+  #selfieRow { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  #selfieRow button { padding: 10px 18px; font-size: 16px; font-weight: 600; border: 2px solid #fff; border-radius: 30px; background: transparent; color: #fff; }
+  #facePrev { width: 56px; height: 56px; border-radius: 50%; border: 3px solid #42a5f5; object-fit: cover; display: none; }
+  #overlay { overflow-y: auto; touch-action: pan-y; }
+  @media (max-height: 500px) {
+    #overlay h1 { font-size: 30px; margin-bottom: 2px; }
+    #overlay p { margin: 3px 0; font-size: 13px !important; }
+    #selfieRow { margin-top: 6px; }
+    #selfieRow button { padding: 6px 14px; font-size: 14px; }
+    #facePrev { width: 40px; height: 40px; }
+    #play { margin-top: 8px; padding: 10px 36px; font-size: 18px; }
+  }
+  @media (hover: none) { .kbd { display: none; } }
   #rotate { display: none; position: fixed; top: 8px; left: 0; right: 0; text-align: center; font-size: 13px; opacity: .8; z-index: 6; }
   @media (orientation: portrait) and (max-width: 700px) { #rotate { display: block; } }
   @media (hover: hover) and (pointer: fine) { .ctrl { display: none; } }
@@ -43,8 +56,14 @@
 <div id="overlay">
   <h1>HEAD SOCCER</h1>
   <p id="msg">You are <b style="color:#42a5f5">Blue</b>. First to 5 goals or most goals in 90 seconds wins.</p>
-  <p style="font-size:14px">Phone: ◀ ▶ move, ▲ jump, ⚽ kick<br>Keyboard: A/D or ←/→ move, W/↑ jump, Space kick</p>
+  <p style="font-size:14px">Phone: ◀ ▶ move, ▲ jump, ⚽ kick<span class="kbd"><br>Keyboard: A/D or ←/→ move, W/↑ jump, Space kick</span></p>
   <p style="font-size:14px">💣 Watch out for falling bombs! Get caught in the blast and you're covered in ash and frozen for 5 seconds.</p>
+  <div id="selfieRow">
+    <img id="facePrev" alt="Your face">
+    <button id="selfieBtn">📸 Take selfie</button>
+    <button id="clearFace" style="display:none">✕</button>
+  </div>
+  <input type="file" id="selfieIn" accept="image/*" capture="user" hidden>
   <button id="play">PLAY</button>
 </div>
 <script>
@@ -83,7 +102,7 @@
     for (const b of btns) { const on = pressed.has(b.dataset.k); keys[b.dataset.k] = on; b.classList.toggle('on', on); }
   }
   ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, e => {
-    if (e.target.id === 'play') return;
+    if (e.target.closest('#overlay')) return;
     updateTouches(e);
   }, { passive: false }));
 
@@ -277,7 +296,35 @@
   }
   const playBtn = document.getElementById('play');
   playBtn.addEventListener('click', start);
-  playBtn.addEventListener('touchend', e => { e.preventDefault(); start(); });
+
+  // ---------- selfie face ----------
+  let faceImg = null;
+  const facePrev = document.getElementById('facePrev'), clearFace = document.getElementById('clearFace');
+  const selfieIn = document.getElementById('selfieIn');
+  function setFace(url) {
+    if (!url) { faceImg = null; facePrev.style.display = clearFace.style.display = 'none'; return; }
+    const img = new Image();
+    img.onload = () => { faceImg = img; facePrev.src = url; facePrev.style.display = 'block'; clearFace.style.display = 'inline-block'; };
+    img.src = url;
+  }
+  document.getElementById('selfieBtn').addEventListener('click', () => selfieIn.click());
+  clearFace.addEventListener('click', () => { setFace(null); try { localStorage.removeItem('hs-face'); } catch (e) {} });
+  selfieIn.addEventListener('change', () => {
+    const file = selfieIn.files[0]; if (!file) return;
+    const src = new Image(), url = URL.createObjectURL(file);
+    src.onload = () => {
+      // crop the centre square (a bit above middle, where faces usually are) to 160x160
+      const size = Math.min(src.width, src.height), sx = (src.width - size) / 2, sy = Math.max(0, (src.height - size) / 2 - size * 0.08);
+      const c = document.createElement('canvas'); c.width = c.height = 160;
+      c.getContext('2d').drawImage(src, sx, sy, size, size, 0, 0, 160, 160);
+      URL.revokeObjectURL(url);
+      const data = c.toDataURL('image/jpeg', 0.85);
+      setFace(data);
+      try { localStorage.setItem('hs-face', data); } catch (e) {}
+    };
+    src.src = url; selfieIn.value = '';
+  });
+  try { setFace(localStorage.getItem('hs-face')); } catch (e) {}
 
   // ---------- drawing ----------
   function drawField() {
@@ -312,6 +359,14 @@
     const f = footPos(p);
     ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.ellipse(f.x, f.y, 14, 8, p.dir * (p.kickT > 0 ? -0.5 : 0), 0, 7); ctx.fill();
     // head
+    if (p === p1 && faceImg) {
+      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.clip();
+      ctx.drawImage(faceImg, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); ctx.restore();
+      ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.stroke();
+    } else drawCartoonFace(p);
+    if (p.ash > 0) drawAsh(p);
+  }
+  function drawCartoonFace(p) {
     ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2; ctx.stroke();
     // hair
@@ -327,20 +382,20 @@
     // mouth
     ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 3; ctx.beginPath();
     ctx.arc(p.x + p.dir * 10, p.y + 14, 7, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
-    if (p.ash > 0) {
-      // covered in ash: grey coat, soot blobs, smoke and countdown
-      ctx.fillStyle = 'rgba(90,90,90,.82)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r, 19, 15, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = '#333';
-      for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(p.x + Math.cos(i * 2.1) * 18, p.y + Math.sin(i * 1.7) * 16, 5, 0, 7); ctx.fill(); }
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x + p.dir * 14, p.y - 2, 5, 0, 7); ctx.fill();
-      const t = performance.now() / 300;
-      ctx.fillStyle = 'rgba(120,120,120,.5)';
-      for (let i = 0; i < 3; i++) { const k = (t + i / 3) % 1; ctx.beginPath(); ctx.arc(p.x - 10 + i * 10, p.y - p.r - k * 40, 6 + k * 6, 0, 7); ctx.fill(); }
-      ctx.font = 'bold 18px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
-      ctx.fillStyle = '#ff7043'; ctx.fillText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
-    }
+  }
+  function drawAsh(p) {
+    // covered in ash: grey coat, soot blobs, smoke and countdown
+    ctx.fillStyle = 'rgba(90,90,90,.82)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r, 19, 15, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#333';
+    for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(p.x + Math.cos(i * 2.1) * 18, p.y + Math.sin(i * 1.7) * 16, 5, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x + p.dir * 14, p.y - 2, 5, 0, 7); ctx.fill();
+    const t = performance.now() / 300;
+    ctx.fillStyle = 'rgba(120,120,120,.5)';
+    for (let i = 0; i < 3; i++) { const k = (t + i / 3) % 1; ctx.beginPath(); ctx.arc(p.x - 10 + i * 10, p.y - p.r - k * 40, 6 + k * 6, 0, 7); ctx.fill(); }
+    ctx.font = 'bold 18px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
+    ctx.fillStyle = '#ff7043'; ctx.fillText(Math.ceil(p.ash), p.x, p.y - p.r - 18);
   }
   function drawBall() {
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath();
