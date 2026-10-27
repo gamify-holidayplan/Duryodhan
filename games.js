@@ -9,4 +9,12 @@ window.GAMES = [
     color: ['#2e7d32', '#1b5e20'],
     emoji: '⚽',
   },
+  {
+    slug: 'paper-toss',
+    title: 'Paper Toss',
+    description: 'Flick a crumpled paper ball into the bin. Aim against the fan\'s wind and see how long a streak you can build.',
+    tags: ['Casual', '1 player'],
+    color: ['#90a4ae', '#455a64'],
+    emoji: '🗑️',
+  },
 ];

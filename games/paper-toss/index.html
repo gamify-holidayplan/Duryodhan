@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#cfc6b4">
+<title>Paper Toss</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; background: #cfc6b4; font-family: system-ui, -apple-system, sans-serif; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #home { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); z-index: 5;
+          padding: 7px 13px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
+  #over { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(20,17,43,.6); padding: 16px; }
+  .panel { background: #fff; color: #222; border-radius: 20px; padding: 26px 24px; text-align: center; width: min(320px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  .panel h1 { margin: 0 0 6px; font-size: 28px; }
+  .panel .big { font-size: 56px; font-weight: 800; line-height: 1; margin: 10px 0 4px; }
+  .panel .muted { color: #777; font-size: 14px; }
+  .panel button, .panel a { display: block; width: 100%; margin-top: 12px; padding: 13px; border-radius: 30px; font-size: 17px; font-weight: 700; text-decoration: none; border: 0; }
+  #again { background: #ffca28; color: #222; }
+  .panel a { background: #eee; color: #333; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="home" href="/">← All games</a>
+<div id="over"><div class="panel">
+  <h1 id="overTitle">Missed!</h1>
+  <div class="muted">Baskets in a row</div>
+  <div class="big" id="overScore">0</div>
+  <div class="muted" id="overBest"></div>
+  <button id="again">Play again</button>
+  <a href="/">All games</a>
+</div></div>
+<script>
+(() => {
+  // ---------- world (metres) ----------
+  // camera at z=0, height CAM_Y; floor is y=0; the bin's rim is at y=RIM_Y.
+  const CAM_Y = 1.3, RIM_Y = 0.6, BIN_R = 0.25, BALL_R = 0.09, G = 5; // paper floats, so gravity is gentle
+  const START = { x: 0, y: 0.6, z: 1.3 }; // z is set in resize() so the ball sits near the bottom of any screen
+  const LEVELS = [ // [from score, bin distance, max wind]
+    [0, 3, 1.0], [5, 4.5, 1.6], [10, 6, 2.2], [20, 7.5, 2.8],
+  ];
+
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let W, H, f, horizon;
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const portrait = H > W;
+    f = Math.min(W * 1.55, H * (portrait ? 1.45 : 1.2)); horizon = H * (portrait ? 0.4 : 0.25);
+    START.z = (CAM_Y - START.y) * f / (H * 0.8 - horizon);
+    if (ball && !ball.flying) ball.z = START.z;
+  }
+  addEventListener('resize', resize);
+  const proj = (x, y, z) => ({ x: W / 2 + x * f / z, y: horizon + (CAM_Y - y) * f / z, s: f / z });
+
+  // ---------- state ----------
+  let score = 0, best = 0, dist = 3, wind = 0, ball = null, state = 'aim', msg = null, timer = 0, levelName = '';
+  try { best = +localStorage.getItem('pt-best') || 0; } catch (e) {}
+  const crumple = Array.from({ length: 11 }, (_, i) => 0.82 + Math.random() * 0.18);
+  const streaks = Array.from({ length: 26 }, () => ({ x: Math.random() * 6 - 3, y: 0.3 + Math.random() * 2.2, z: 1 + Math.random() * 7 }));
+
+  function level() { let l = LEVELS[0]; for (const L of LEVELS) if (score >= L[0]) l = L; return l; }
+  function newThrow() {
+    const [, d, maxW] = level();
+    if (d !== dist) levelName = `Moving back to ${d} m!`;
+    dist = d;
+    wind = (Math.random() * 2 - 1) * maxW;
+    if (Math.abs(wind) < 0.08) wind = 0;
+    ball = { ...START, vx: 0, vy: 0, vz: 0, spin: 0, flying: false, judged: false, inBin: false, done: false };
+    state = 'aim';
+  }
+
+  // ---------- input: swipe up to throw ----------
+  let swipe = null;
+  cv.addEventListener('pointerdown', e => {
+    if (state !== 'aim') return;
+    swipe = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointerup', e => {
+    if (!swipe || state !== 'aim') return;
+    const dx = e.clientX - swipe.x, dy = swipe.y - e.clientY; swipe = null;
+    if (dy < 25) return; // must be an upward swipe
+    throwBall(Math.max(-1.2, Math.min(1.2, dx / dy)));
+  });
+  cv.addEventListener('pointercancel', () => swipe = null);
+
+  function throwBall(aim) {
+    // fixed flight time per distance: the swipe only chooses the direction, like the classic game
+    const T = 0.75 + 0.1 * dist;
+    ball.vz = (dist - START.z) / T;
+    ball.vy = (G * T * T / 2 - (START.y - RIM_Y)) / T;
+    ball.vx = aim * ball.vz * 0.35;
+    ball.flying = true; state = 'flying';
+  }
+
+  // ---------- update ----------
+  function update(dt) {
+    for (const s of streaks) { s.x += wind * 1.6 * dt; if (s.x > 3.5) s.x = -3.5; if (s.x < -3.5) s.x = 3.5; }
+    if (msg) { msg.t += dt; if (msg.t > 1.3) msg = null; }
+    if (state === 'flying') stepBall(dt);
+    if (state === 'result') { timer -= dt; if (timer <= 0) afterResult(); }
+  }
+  function stepBall(dt) {
+    const b = ball;
+    const steps = 4, h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      const prevY = b.y;
+      if (!b.inBin) b.vx += wind * h;                 // the fan pushes the paper sideways
+      b.vy -= G * h; b.x += b.vx * h; b.y += b.vy * h; b.z += b.vz * h;
+      b.spin += 6 * h;
+      if (!b.judged && b.vy < 0 && prevY >= RIM_Y && b.y < RIM_Y) judge();
+      if (b.inBin) {
+        // fall inside the bin and settle on the bottom
+        b.x += (0 - b.x) * 6 * h; b.z += (dist - b.z) * 6 * h;
+        if (b.y < BALL_R + 0.05) { b.y = BALL_R + 0.05; b.vy = 0; b.vx = 0; b.vz = 0; }
+      } else if (b.y < BALL_R) {
+        b.y = BALL_R; b.vy = -b.vy * 0.3; b.vx *= 0.5; b.vz *= 0.5;
+        if (Math.abs(b.vy) < 0.3) { b.vy = 0; b.vx *= 0.9; b.vz *= 0.9; }
+      }
+      // bounce off the bin's outside wall
+      if (!b.inBin && b.y < RIM_Y) {
+        const dx = b.x, dz = b.z - dist, d = Math.hypot(dx, dz), min = BIN_R + BALL_R;
+        if (d < min && d > 0) { b.x = dx / d * min; b.z = dist + dz / d * min; b.vx = dx / d * 0.8; b.vz = dz / d * 0.8; }
+      }
+    }
+    if (b.judged && state === 'flying' && (b.inBin ? b.y <= BALL_R + 0.06 : (b.y <= BALL_R && b.vy === 0) || b.z > dist + 4)) {
+      state = 'result'; timer = b.inBin ? 0.5 : 0.9;
+    }
+  }
+  function judge() {
+    const b = ball; b.judged = true;
+    const d = Math.hypot(b.x, b.z - dist);
+    if (d < BIN_R - BALL_R * 0.5) { b.inBin = true; b.vz = 0; say('Swish!', '#2e7d32'); }
+    else if (d < BIN_R + BALL_R * 0.3) { b.inBin = true; b.vy = 0.8; b.vz = 0; say('Rim shot!', '#ef6c00'); }
+    else if (d < BIN_R + BALL_R) {                    // clipped the rim: bounce out
+      const nx = b.x / d, nz = (b.z - dist) / d;
+      b.vx = nx * 1.4; b.vz = nz * 1.4; b.vy = 1.2; say('Off the rim!', '#c62828');
+    } else say('Missed!', '#c62828');
+    if (b.inBin && navigator.vibrate) navigator.vibrate(40);
+  }
+  function say(text, color) { msg = { text, color, t: 0 }; }
+  function afterResult() {
+    if (ball.inBin) { score++; newThrow(); return; }
+    if (score > best) { best = score; try { localStorage.setItem('pt-best', best); } catch (e) {} }
+    document.getElementById('overTitle').textContent = score >= best && score > 0 ? 'New best! 🏆' : 'Missed!';
+    document.getElementById('overScore').textContent = score;
+    document.getElementById('overBest').textContent = `Best: ${best}`;
+    document.getElementById('over').style.display = 'flex';
+    state = 'over';
+  }
+  document.getElementById('again').addEventListener('click', () => {
+    document.getElementById('over').style.display = 'none';
+    score = 0; dist = 3; levelName = ''; newThrow();
+  });
+
+  // ---------- drawing ----------
+  function drawRoom() {
+    const back = dist + 3;
+    const wallFloor = proj(0, 0, back).y;
+    // wall
+    const wg = ctx.createLinearGradient(0, 0, 0, wallFloor);
+    wg.addColorStop(0, '#e9e2d3'); wg.addColorStop(1, '#d8cfbd');
+    ctx.fillStyle = wg; ctx.fillRect(0, 0, W, wallFloor);
+    // window
+    const w1 = proj(-2.3, 1.9, back), w2 = proj(-0.9, 0.9, back);
+    ctx.fillStyle = '#8b7d66'; ctx.fillRect(w1.x - 6, w1.y - 6, w2.x - w1.x + 12, w2.y - w1.y + 12);
+    const sky = ctx.createLinearGradient(0, w1.y, 0, w2.y); sky.addColorStop(0, '#64b5f6'); sky.addColorStop(1, '#bbdefb');
+    ctx.fillStyle = sky; ctx.fillRect(w1.x, w1.y, w2.x - w1.x, w2.y - w1.y);
+    ctx.fillStyle = '#90a4ae';
+    for (let i = 0; i < 4; i++) { const bx = w1.x + (w2.x - w1.x) * (0.05 + i * 0.24), bh = (w2.y - w1.y) * (0.3 + (i % 3) * 0.18); ctx.fillRect(bx, w2.y - bh, (w2.x - w1.x) * 0.18, bh); }
+    ctx.fillStyle = '#8b7d66'; ctx.fillRect((w1.x + w2.x) / 2 - 3, w1.y, 6, w2.y - w1.y); ctx.fillRect(w1.x, (w1.y + w2.y) / 2 - 3, w2.x - w1.x, 6);
+    // clock
+    const c = proj(1.6, 1.5, back), cr = 0.25 * c.s;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#444'; ctx.lineWidth = Math.max(2, cr * 0.12);
+    ctx.beginPath(); ctx.arc(c.x, c.y, cr, 0, 7); ctx.fill(); ctx.stroke();
+    const now = new Date(), ha = (now.getHours() % 12 + now.getMinutes() / 60) / 12 * Math.PI * 2, ma = now.getMinutes() / 60 * Math.PI * 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.sin(ha) * cr * 0.5, c.y - Math.cos(ha) * cr * 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.sin(ma) * cr * 0.8, c.y - Math.cos(ma) * cr * 0.8); ctx.stroke();
+    // skirting board
+    ctx.fillStyle = '#a1887f'; ctx.fillRect(0, wallFloor - 0.12 * proj(0, 0, back).s, W, 0.12 * proj(0, 0, back).s);
+    // floor (carpet tiles in perspective)
+    const fg = ctx.createLinearGradient(0, wallFloor, 0, H);
+    fg.addColorStop(0, '#7a8691'); fg.addColorStop(1, '#5c6873');
+    ctx.fillStyle = fg; ctx.fillRect(0, wallFloor, W, H - wallFloor);
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+    for (let x = -6; x <= 6; x += 0.6) { const a = proj(x, 0, back), b = proj(x, 0, 0.35); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    for (let z = 0.6; z < back; z += 0.6) { const y = proj(0, 0, z).y; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  }
+  function binGeom() {
+    const top = proj(0, RIM_Y, dist), bot = proj(0, 0, dist);
+    const rx = BIN_R * top.s, ry = rx * 0.32, bx = BIN_R * 0.8 * bot.s, by = bx * 0.32;
+    return { top, bot, rx, ry, bx, by };
+  }
+  function drawBinBack() {
+    const g = binGeom();
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(g.bot.x + g.bx * 0.15, g.bot.y + 2, g.bx * 1.3, g.by * 1.4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#263238'; ctx.beginPath(); ctx.ellipse(g.top.x, g.top.y, g.rx, g.ry, 0, 0, 7); ctx.fill();
+  }
+  function drawBinFront() {
+    const g = binGeom();
+    const body = ctx.createLinearGradient(g.top.x - g.rx, 0, g.top.x + g.rx, 0);
+    body.addColorStop(0, '#78909c'); body.addColorStop(0.35, '#cfd8dc'); body.addColorStop(1, '#607d8b');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(g.top.x - g.rx, g.top.y);
+    ctx.lineTo(g.bot.x - g.bx, g.bot.y);
+    ctx.ellipse(g.bot.x, g.bot.y, g.bx, g.by, 0, Math.PI, 0, true);
+    ctx.lineTo(g.top.x + g.rx, g.top.y);
+    ctx.ellipse(g.top.x, g.top.y, g.rx, g.ry, 0, 0, Math.PI, false);
+    ctx.fill();
+    // mesh lines
+    ctx.strokeStyle = 'rgba(38,50,56,.35)'; ctx.lineWidth = Math.max(1, g.rx * 0.03);
+    for (let i = 1; i < 8; i++) {
+      const t = i / 8, a = Math.PI - t * Math.PI;
+      ctx.beginPath(); ctx.moveTo(g.top.x + Math.cos(a) * g.rx, g.top.y + Math.sin(a) * g.ry);
+      ctx.lineTo(g.bot.x + Math.cos(a) * g.bx, g.bot.y + Math.sin(a) * g.by); ctx.stroke();
+    }
+    // rim
+    ctx.strokeStyle = '#eceff1'; ctx.lineWidth = Math.max(2, g.rx * 0.09);
+    ctx.beginPath(); ctx.ellipse(g.top.x, g.top.y, g.rx, g.ry, 0, 0, 7); ctx.stroke();
+  }
+  function drawBall() {
+    const b = ball, p = proj(b.x, b.y, b.z), r = BALL_R * p.s;
+    if (!b.inBin) {
+      const s = proj(b.x, 0, b.z);
+      ctx.fillStyle = `rgba(0,0,0,${0.25 * Math.max(0.2, 1 - b.y / 3)})`;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, r * 1.1, r * 0.35, 0, 0, 7); ctx.fill();
+    }
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(b.spin);
+    ctx.beginPath();
+    crumple.forEach((k, i) => { const a = i / crumple.length * Math.PI * 2; ctx.lineTo(Math.cos(a) * r * k, Math.sin(a) * r * k); });
+    ctx.closePath();
+    const pg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+    pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#cfd3d6');
+    ctx.fillStyle = pg; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = Math.max(1, r * 0.06); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.1); ctx.lineTo(0, r * 0.15); ctx.lineTo(r * 0.45, -r * 0.3);
+    ctx.moveTo(-r * 0.2, r * 0.55); ctx.lineTo(r * 0.1, r * 0.1); ctx.lineTo(-r * 0.15, -r * 0.5); ctx.stroke();
+    ctx.restore();
+  }
+  function drawWind() {
+    if (wind === 0) return;
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineCap = 'round';
+    for (const s of streaks) {
+      const a = proj(s.x, s.y, s.z), len = Math.min(0.5, Math.abs(wind) * 0.18) * a.s;
+      ctx.lineWidth = Math.max(1, a.s * 0.012);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x - Math.sign(wind) * len, a.y); ctx.stroke();
+    }
+  }
+  function drawHUD(t) {
+    const top = 44;
+    // wind gauge with spinning fan (drops below the back link on narrow screens)
+    const cx = W > H ? 16 + 90 : W / 2, cy = 96;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.roundRect(cx - 90, cy - 26, 180, 52, 26); ctx.fill();
+    ctx.save(); ctx.translate(cx - 58, cy); ctx.rotate(t * Math.abs(wind) * 6);
+    ctx.fillStyle = '#b3e5fc';
+    for (let i = 0; i < 3; i++) { ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.ellipse(0, -9, 5, 9, 0, 0, 7); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 11px system-ui, sans-serif'; ctx.fillText('WIND', cx + 12, cy - 11);
+    ctx.font = '800 20px system-ui, sans-serif';
+    const arrow = wind > 0 ? '→' : wind < 0 ? '←' : '';
+    ctx.fillText(wind === 0 ? 'calm' : `${arrow} ${(Math.abs(wind) * 2).toFixed(1)} ${arrow}`, cx + 12, cy + 8);
+    // score & best
+    ctx.textAlign = 'right'; ctx.fillStyle = '#263238';
+    ctx.font = '800 28px system-ui, sans-serif'; ctx.fillText(score, W - 16, top - 6);
+    ctx.font = '600 12px system-ui, sans-serif'; ctx.fillText(`BEST ${best} · ${dist} m`, W - 16, top + 18);
+  }
+  function drawMessages() {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (msg) {
+      const k = msg.t / 1.3, g = binGeom();
+      ctx.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
+      ctx.font = `800 ${Math.round(Math.min(W, H) * 0.09)}px system-ui, sans-serif`;
+      ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.strokeText(msg.text, W / 2, g.top.y - 60 - k * 30);
+      ctx.fillStyle = msg.color; ctx.fillText(msg.text, W / 2, g.top.y - 60 - k * 30);
+      ctx.globalAlpha = 1;
+    }
+    if (state === 'aim') {
+      const p = proj(START.x, START.y, START.z), bob = Math.sin(performance.now() / 250) * 6;
+      ctx.font = '700 16px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.fillText(levelName || 'Swipe up to throw', W / 2, Math.min(H - 24, p.y + BALL_R * p.s + 34));
+      ctx.fillText('↑', W / 2, p.y - BALL_R * p.s - 24 + bob);
+    }
+  }
+  function draw(t) {
+    drawRoom();
+    drawBinBack();
+    const behind = ball.inBin || ball.z > dist;
+    if (behind) drawBall();
+    drawBinFront();
+    if (!behind) drawBall();
+    drawWind();
+    drawHUD(t); drawMessages();
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    update(dt); draw(now / 1000);
+    requestAnimationFrame(loop);
+  }
+  resize(); newThrow();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -21,3 +21,4 @@ games/<slug>/index.html one folder per game
 ## Games
 
 - **Head Soccer** (`/games/head-soccer/`): 1-player football vs the computer, with falling bombs and selfie faces.
+- **Paper Toss** (`/games/paper-toss/`): swipe a paper ball into the bin, aiming against the fan's wind. One miss ends the streak.
