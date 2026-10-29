@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2e7d32">
+<title>Stick Cricket</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; background: #2e7d32; font-family: system-ui, -apple-system, sans-serif; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #home { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); z-index: 5;
+          padding: 7px 13px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.5); padding: 16px; }
+  .panel { background: #fffdf5; color: #222; border-radius: 22px; padding: 24px 20px; text-align: center; width: min(360px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .panel h1 { margin: 0 0 6px; font-size: 30px; }
+  .panel p { margin: 8px 0; color: #555; font-size: 15px; line-height: 1.45; }
+  .panel .how { text-align: left; background: #f1f5e9; border-radius: 14px; padding: 10px 14px; font-size: 14px; color: #33402a; }
+  .btn { display: block; width: 100%; margin-top: 12px; padding: 13px; border-radius: 30px; font-size: 18px; font-weight: 800; border: 0; text-decoration: none; cursor: pointer; }
+  .go { background: #ffca28; color: #222; }
+  .alt { background: #e8e8e8; color: #333; font-size: 16px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="home" href="/">← All games</a>
+<div class="screen" id="menu"><div class="panel">
+  <h1 id="title">🏏 Stick Cricket</h1>
+  <p id="sub">Chase the target in 3 overs. You have 3 wickets.</p>
+  <div class="how" id="how">
+    <b>Tap</b> as the ball reaches you to hit along the ground.<br>
+    <b>Swipe up</b> to hit it in the air: sixes, but you can be caught.<br>
+    <b>Swipe left or right</b> to aim. Hitting early pulls it left, late sends it right.
+  </div>
+  <button class="btn go" id="go">PLAY</button>
+  <a class="btn alt" href="/">All games</a>
+</div></div>
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let W, H, f, hor;
+  function resize() {
+    const dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    f = Math.min(W * 1.45, H * 1.0); hor = H * (W > H ? .38 : .32);
+  }
+  addEventListener('resize', resize); resize();
+  // batting view: camera behind the batsman, looking down the pitch (z = metres towards the bowler)
+  const CAM_Z = -4.6, CAM_Y = 1.9;
+  const P = (x, y, z) => { const d = z - CAM_Z; return { x: W / 2 + x * f / d, y: hor + (CAM_Y - y) * f / d, s: f / d }; };
+
+  // ---------- match ----------
+  const OVERS = 3, WICKETS = 3;
+  let runs, wkts, balls, target, overLog, state = 'menu', phase, t, del, swing, gesture, shot, banner, fieldAnim, fielders;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const RING = [['Keeper', 180, 7], ['Slip', 152, 15], ['Point', 95, 27], ['Cover', 55, 28], ['Mid-off', 16, 27], ['Mid-on', -16, 27], ['Midwicket', -55, 28], ['Square leg', -95, 27]];
+  const DEEP = [['Long-on', -18, 62], ['Long-off', 18, 62], ['Deep midwicket', -58, 61], ['Deep cover', 58, 61], ['Fine leg', -140, 55], ['Third man', 140, 55]];
+  function setField() {
+    const deep = [...DEEP].sort(() => Math.random() - .5).slice(0, 2);
+    fielders = [...RING, ...deep, ['Bowler', 4, 20]].map(([name, a, d]) => {
+      const r = a * Math.PI / 180; return { name, x: Math.sin(r) * d, y: Math.cos(r) * d, hx: Math.sin(r) * d, hy: Math.cos(r) * d };
+    });
+  }
+  function startMatch() {
+    runs = 0; wkts = 0; balls = 0; overLog = []; target = 30 + Math.floor(Math.random() * 9);
+    document.getElementById('menu').style.display = 'none';
+    setField(); nextBall();
+  }
+  function nextBall() {
+    if (balls > 0 && balls % 6 === 0) { overLog = []; setField(); }
+    const len = Math.random();
+    del = {
+      speed: rnd(18, 26),                                    // m/s down the pitch
+      bounce: len < .15 ? rnd(.6, 1.5) : len < .8 ? rnd(3, 6.5) : rnd(7, 9.5), // yorker / good length / short
+      line: rnd(-.32, .36), rel: rnd(-.25, .25),
+    };
+    del.crossH = del.bounce < 1.6 ? rnd(.08, .25) : del.bounce < 7 ? rnd(.55, .9) : rnd(1.1, 1.6); // ball height at the crease
+    del.kmh = Math.round(del.speed * 5.2);
+    phase = 'runup'; t = 0; swing = null; gesture = null; shot = null; banner = null; fieldAnim = null;
+  }
+  const RELEASE_Z = 18.5, BAT_Z = .35;
+  function ballPos(tt) {
+    const z = RELEASE_Z - del.speed * tt;
+    const k = (RELEASE_Z - z) / (RELEASE_Z - BAT_Z);
+    const x = del.rel + (del.line - del.rel) * Math.min(1.2, k);
+    let y;
+    if (z > del.bounce) y = 2.15 * (z - del.bounce) / (RELEASE_Z - del.bounce) * (1 - .25 * (1 - (z - del.bounce) / (RELEASE_Z - del.bounce)));
+    else { const u = (del.bounce - z) / (del.bounce - BAT_Z); y = del.crossH * (u * (2 - u)) / 1; }
+    return { x, y: Math.max(0, y), z };
+  }
+  const arriveT = () => (RELEASE_Z - BAT_Z) / del.speed;
+
+  // ---------- input ----------
+  let down = null;
+  function swingNow(time) { if (phase === 'delivery' && !swing) swing = { t: time }; }
+  cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; swingNow(t); cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerup', e => {
+    if (!down) return;
+    const dx = e.clientX - down.x, dy = e.clientY - down.y; down = null;
+    if (!swing || gesture) return;
+    gesture = Math.hypot(dx, dy) < 25 ? { aim: 0, loft: false } :
+      { aim: Math.max(-75, Math.min(75, Math.atan2(dx, Math.max(1, -dy)) * 180 / Math.PI)), loft: -dy > Math.abs(dx) * .5 };
+  });
+  const keyShot = { Space: { aim: 0, loft: false }, ArrowUp: { aim: 0, loft: true }, ArrowLeft: { aim: -55, loft: false }, ArrowRight: { aim: 55, loft: false } };
+  addEventListener('keydown', e => {
+    if (keyShot[e.code] && state === 'play') { e.preventDefault(); if (!e.repeat) { swingNow(t); gesture = keyShot[e.code]; } }
+  });
+
+  // ---------- shot outcome ----------
+  function boundaryDist(th) {
+    const ux = Math.sin(th), uy = Math.cos(th), cx = 0, cy = 9, R = 66, b = ux * cx + uy * cy;
+    return b + Math.sqrt(b * b - (cx * cx + cy * cy) + R * R);
+  }
+  function playShot() {
+    const e = swing.t + .15 - arriveT();          // + late, - early (seconds)
+    const g = gesture || { aim: 0, loft: false }, ae = Math.abs(e);
+    if (ae > .12) return miss();
+    if (ae > .085) {                                 // edge
+      if (Math.random() < .45) return out(Math.random() < .5 ? 'Keeper' : 'Slip', 'Caught behind!', { th: Math.PI * (e > 0 ? .9 : -.95), dist: 10, loft: true });
+      return result(Math.random() < .5 ? 0 : 1, 'Edged!', { th: Math.PI * (e > 0 ? .8 : -.85), dist: 25, loft: false });
+    }
+    const power = ae < .03 ? rnd(1, 1.15) : ae < .06 ? rnd(.68, .9) : rnd(.38, .58);
+    const th = (g.aim + e * 420 + rnd(-8, 8)) * Math.PI / 180;
+    const bd = boundaryDist(th), ux = Math.sin(th), uy = Math.cos(th);
+    if (g.loft) {
+      const carry = power * 88;
+      if (carry >= bd) return result(6, 'SIX!', { th, dist: bd + 8, loft: true });
+      const lx = ux * carry, ly = uy * carry;
+      let best = null, bdst = 1e9;
+      for (const fl of fielders) { const d = Math.hypot(fl.x - lx, fl.y - ly); if (d < bdst) { bdst = d; best = fl; } }
+      if (bdst < 8 && Math.random() < .85) return out(best.name, `Caught by ${best.name}!`, { th, dist: carry, loft: true, fielder: best });
+      const roll = carry * 1.3;
+      if (roll >= bd) return result(4, 'FOUR!', { th, dist: bd, loft: true });
+      return result(roll > 45 ? 2 : 1, bdst < 8 ? 'Dropped!' : '', { th, dist: roll, loft: true });
+    }
+    const D = power * 82;
+    for (const fl of fielders) {
+      const s = fl.x * ux + fl.y * uy, perp = Math.abs(fl.x * uy - fl.y * ux);
+      if (s > 3 && s < Math.min(D, bd) + 4 && perp < (2.2 + s * .06) / Math.max(.8, power)) // well-timed shots beat fielders more often
+        return result(s < 30 ? 0 : s < 50 ? 1 : 2, s < 30 ? `Fielded at ${fl.name}` : '', { th, dist: s, loft: false, fielder: fl });
+    }
+    if (D >= bd) return result(4, 'FOUR!', { th, dist: bd, loft: false });
+    return result(D < 25 ? 1 : D < 45 ? 2 : 3, '', { th, dist: D, loft: false });
+  }
+  function miss() {
+    const p = ballPos(arriveT());
+    if (Math.abs(p.x) < .16 && del.crossH < .72) return out(null, 'BOWLED!', null);
+    result(0, swing ? 'Beaten!' : 'Left alone', null);
+  }
+  function out(by, text, path) { shot = { runs: 0, out: true, text, path }; afterShot(); }
+  function result(r, text, path) { shot = { runs: r, out: false, text: text || (r === 0 ? 'Dot ball' : r === 1 ? '1 run' : `${r} runs`), path }; afterShot(); }
+  function afterShot() {
+    if (shot.path) {
+      phase = 'fly'; t = 0;
+      fieldAnim = { ...shot.path, t: 0, dur: Math.min(1.8, .5 + shot.path.dist / 45) };
+    } else { phase = 'result'; t = 0; banner = shot.text; score(); }
+  }
+  function score() {
+    balls++;
+    if (shot.out) { wkts++; overLog.push('W'); } else { runs += shot.runs; overLog.push(String(shot.runs)); }
+    if (navigator.vibrate) navigator.vibrate(shot.out ? [80, 50, 80] : shot.runs >= 4 ? 60 : 15);
+  }
+  function checkEnd() {
+    let msg = null;
+    if (runs >= target) msg = ['YOU WIN! 🏆', `Chased ${target} with ${OVERS * 6 - balls} balls to spare.`];
+    else if (wkts >= WICKETS) msg = ['ALL OUT', `You made ${runs}. Needed ${target}.`];
+    else if (balls >= OVERS * 6) msg = [runs === target - 1 ? 'SO CLOSE!' : 'OUT OF BALLS', `You made ${runs}/${wkts}. Needed ${target}.`];
+    if (!msg) return false;
+    state = 'over';
+    document.getElementById('title').textContent = msg[0];
+    document.getElementById('sub').textContent = msg[1];
+    document.getElementById('how').style.display = 'none';
+    document.getElementById('go').textContent = 'PLAY AGAIN';
+    document.getElementById('menu').style.display = 'flex';
+    return true;
+  }
+
+  // ---------- update ----------
+  function update(dt) {
+    if (state !== 'play') return;
+    t += dt;
+    if (phase === 'runup' && t > 1.3) { phase = 'delivery'; t = 0; }
+    else if (phase === 'delivery') {
+      if (swing && t > swing.t + .15 + .06 && gesture !== undefined && (gesture || t > swing.t + .35)) playShot();
+      else if (!swing && t > arriveT() + .15) miss();
+    } else if (phase === 'fly' && t > .4) { phase = 'field'; t = 0; }
+    else if (phase === 'field') {
+      fieldAnim.t = Math.min(1, t / fieldAnim.dur);
+      if (fieldAnim.fielder) { const fl = fieldAnim.fielder, tx = Math.sin(fieldAnim.th) * fieldAnim.dist, ty = Math.cos(fieldAnim.th) * fieldAnim.dist;
+        fl.x = fl.hx + (tx - fl.hx) * Math.min(1, fieldAnim.t * 1.3); fl.y = fl.hy + (ty - fl.hy) * Math.min(1, fieldAnim.t * 1.3); }
+      if (t > fieldAnim.dur + .2) { phase = 'result'; t = 0; banner = shot.text; score(); }
+    } else if (phase === 'result' && t > 1.4) {
+      if (fieldAnim && fieldAnim.fielder) { fieldAnim.fielder.x = fieldAnim.fielder.hx; fieldAnim.fielder.y = fieldAnim.fielder.hy; }
+      if (!checkEnd()) nextBall();
+    }
+  }
+
+  // ---------- drawing: batting view ----------
+  function stick(g, cx, footY, h, opts = {}) {
+    // a stick person: head, body, arms, legs. h = height in px
+    const lw = Math.max(2, h * .05);
+    g.strokeStyle = opts.color || '#111'; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
+    const hip = footY - h * .48, neck = footY - h * .82, head = footY - h * .91;
+    const legSpread = opts.run ? Math.sin(opts.run) * h * .18 : h * .12;
+    g.beginPath(); g.moveTo(cx - legSpread, footY); g.lineTo(cx, hip); g.lineTo(cx + legSpread, footY);
+    g.moveTo(cx, hip); g.lineTo(cx, neck); g.stroke();
+    if (opts.arms) { g.beginPath(); for (const [ax, ay] of opts.arms) { g.moveTo(cx, neck + h * .05); g.lineTo(ax, ay); } g.stroke(); }
+    g.fillStyle = opts.head || '#111'; g.beginPath(); g.arc(cx, head, h * .09, 0, 7); g.fill();
+    if (opts.helmet) { g.fillStyle = opts.helmet; g.beginPath(); g.arc(cx, head - h * .01, h * .095, Math.PI, 0); g.fill(); }
+    return { neck, hip };
+  }
+  function drawBattingView() {
+    // sky, stands, outfield
+    const sky = ctx.createLinearGradient(0, 0, 0, hor); sky.addColorStop(0, '#5aa9e6'); sky.addColorStop(1, '#bfe3ff');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, hor);
+    ctx.fillStyle = '#455a64'; ctx.fillRect(0, hor - H * .07, W, H * .07);
+    for (let i = 0; i < W; i += 9) { ctx.fillStyle = ['#ef5350', '#fff', '#42a5f5', '#ffee58', '#66bb6a'][(i / 9) % 5 | 0]; ctx.fillRect(i, hor - H * .065 + ((i / 9) % 3) * H * .02, 5, 5); }
+    ctx.fillStyle = '#1565c0'; ctx.fillRect(0, hor - 6, W, 6);
+    const og = ctx.createLinearGradient(0, hor, 0, H); og.addColorStop(0, '#43a047'); og.addColorStop(1, '#2e7d32');
+    ctx.fillStyle = og; ctx.fillRect(0, hor, W, H - hor);
+    for (let z = 2; z < 80; z *= 1.35) { const a = P(0, 0, z).y, b = P(0, 0, z * 1.17).y; ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(0, b, W, a - b); }
+    // pitch
+    const c = [P(-1.5, 0, -1.2), P(1.5, 0, -1.2), P(1.5, 0, 21.5), P(-1.5, 0, 21.5)];
+    ctx.fillStyle = '#d7c08a'; ctx.beginPath(); c.forEach(p => ctx.lineTo(p.x, p.y)); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    for (const z of [1.22, 18.9]) { const a = P(-1.3, 0, z), b = P(1.3, 0, z); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    // far stumps
+    drawStumps(20.12, false);
+    // bowler
+    drawBowler();
+    // ball before it reaches the batsman is drawn behind him
+    const bp = phase === 'delivery' ? ballPos(t) : null;
+    if (bp && bp.z > BAT_Z - .2) drawBall(bp);
+    drawStumps(0, phase === 'result' && shot && shot.text === 'BOWLED!');
+    drawBatsman();
+    if (bp && bp.z <= BAT_Z - .2) drawBall(bp);
+    if (phase === 'fly') {
+      // the ball flies off in the shot's direction
+      const k = t / .4, th = fieldAnim.th, d = 3 + k * 25;
+      drawBall({ x: Math.sin(th) * d * .4, y: .8 + (fieldAnim.loft ? k * 6 : k * .5), z: BAT_Z + Math.cos(th) * d });
+    }
+  }
+  function drawStumps(z, broken) {
+    const base = P(0, 0, z), s = base.s;
+    ctx.strokeStyle = '#f5e6c8'; ctx.lineWidth = Math.max(2, .035 * s); ctx.lineCap = 'butt';
+    for (const dx of [-.1, 0, .1]) {
+      const a = P(dx, 0, z), b = P(dx + (broken ? dx * 2 + .1 : 0), .71, z);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    if (!broken) { const a = P(-.11, .72, z), b = P(.11, .72, z); ctx.lineWidth = Math.max(1.5, .025 * s); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  }
+  function drawBowler() {
+    let z = 19.6, run = 0, armA = -.4;
+    if (phase === 'runup') { z = 30 - Math.min(1, t / 1.3) * 10.4; run = t * 14; armA = -.4 + Math.max(0, (t - 1) / .3) * 3.5; }
+    else if (phase === 'delivery') { z = 19.6 - Math.min(.8, t * 2); armA = 3.1 + Math.min(1, t * 4) * 1.5; run = 3; }
+    const base = P(.35, 0, z), h = 1.8 * base.s, sh = base.y - h * .77, al = h * .35;
+    stick(ctx, base.x, base.y, h, { run: run || .6, color: '#0d1b3e', arms: [[base.x + Math.cos(armA - Math.PI / 2) * al, sh + Math.sin(armA - Math.PI / 2) * al], [base.x - al * .6, sh + al * .5]] });
+  }
+  function drawBatsman() {
+    const base = P(-.5, 0, .25), h = 1.75 * base.s;
+    // bat angle: back-lift (up-left) -> down -> follow-through (up-right)
+    let a = 3.98;
+    if (swing) { const k = Math.min(1, ((phase === 'delivery' ? t : 1) - swing.t) / .3); a = 3.98 - k * 4.58; }
+    else if (phase === 'delivery') a = 3.98 + Math.sin(t * 6) * .05;
+    const hx = base.x + h * .2, hy = base.y - h * .5, bl = h * .5;
+    const tipx = hx + Math.cos(a) * bl, tipy = hy + Math.sin(a) * bl;
+    stick(ctx, base.x, base.y, h, { color: '#fafafa', head: '#ffcc99', helmet: '#1a237e', arms: [[hx, hy], [hx - h * .03, hy + h * .03]] });
+    // pads
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = h * .07;
+    ctx.beginPath(); ctx.moveTo(base.x - h * .1, base.y); ctx.lineTo(base.x - h * .05, base.y - h * .22);
+    ctx.moveTo(base.x + h * .1, base.y); ctx.lineTo(base.x + h * .05, base.y - h * .22); ctx.stroke();
+    // bat
+    ctx.strokeStyle = '#d9b77e'; ctx.lineWidth = h * .055; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(hx + Math.cos(a) * bl * .3, hy + Math.sin(a) * bl * .3); ctx.lineTo(tipx, tipy); ctx.stroke();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = h * .025;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(a) * bl * .3, hy + Math.sin(a) * bl * .3); ctx.stroke();
+  }
+  function drawBall(b) {
+    const sh = P(b.x, 0, b.z), p = P(b.x, b.y, b.z), r = Math.max(2.5, .07 * p.s);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(sh.x, sh.y, r, r * .4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c62828'; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = Math.max(1, r * .2); ctx.beginPath(); ctx.arc(p.x, p.y, r * .7, -.6, .9); ctx.stroke();
+  }
+
+  // ---------- drawing: field view (top-down) ----------
+  function drawFieldView() {
+    ctx.fillStyle = '#1b5e20'; ctx.fillRect(0, 0, W, H);
+    const R = Math.min(W, H) * .44, cx = W / 2, cy = H / 2 + R * .08, m = R / 70;
+    const F = (x, y) => [cx + x * m, cy - (y - 9) * m];
+    const [ox, oy] = F(0, 9);
+    for (let i = 8; i >= 0; i--) { ctx.fillStyle = i % 2 ? '#43a047' : '#4caf50'; ctx.beginPath(); ctx.arc(ox, oy, R * (i + 1) / 9 * (66 / 70), 0, 7); ctx.fill(); }
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(ox, oy, 66 * m, 0, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.arc(ox, oy, 30 * m, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    const [p1x, p1y] = F(-1.5, -1), [p2x, p2y] = F(1.5, 21);
+    ctx.fillStyle = '#d7c08a'; ctx.fillRect(p1x, p2y, p2x - p1x, p1y - p2y);
+    for (const fl of fielders) {
+      const [x, y] = F(fl.x, fl.y);
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 7, 3, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0d1b3e'; ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
+    }
+    const [bx, by] = F(0, 0); ctx.fillStyle = '#fafafa'; ctx.beginPath(); ctx.arc(bx, by, 6, 0, 7); ctx.fill();
+    if (fieldAnim) {
+      const k = fieldAnim.t, d = fieldAnim.dist * (fieldAnim.loft ? k : 1 - (1 - k) * (1 - k));
+      const x = Math.sin(fieldAnim.th) * d, y = Math.cos(fieldAnim.th) * d;
+      const [sx, sy] = F(x, y), hgt = fieldAnim.loft ? Math.sin(Math.PI * Math.min(1, k)) * 22 : 0;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(sx, sy, 4, 2, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#c62828'; ctx.beginPath(); ctx.arc(sx, sy - hgt, 4 + hgt * .12, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(sx, sy); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  // ---------- HUD ----------
+  function drawHUD() {
+    const left = OVERS * 6 - balls, need = Math.max(0, target - runs);
+    // scoreboard: top centre on tall screens, top right on wide ones
+    const cxH = W > H ? W - 166 : W / 2, y0 = W > H ? 14 : 52;
+    ctx.save(); ctx.translate(cxH - W / 2, 0);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.roundRect(W / 2 - 150, y0 - 4, 300, 64, 14); ctx.fill();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff';
+    ctx.font = '800 30px system-ui, sans-serif'; ctx.fillText(`${runs}/${wkts}`, W / 2 - 138, y0 + 2);
+    ctx.font = '600 13px system-ui, sans-serif'; ctx.fillStyle = '#c8e6c9';
+    const speed = (phase === 'delivery' || phase === 'runup') && del.kmh ? `  ·  ${del.kmh} km/h` : '';
+    ctx.fillText(`Overs ${Math.floor(balls / 6)}.${balls % 6} / ${OVERS}${speed}`, W / 2 - 138, y0 + 38);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#ffeb3b'; ctx.font = '700 15px system-ui, sans-serif';
+    ctx.fillText(`Target ${target}`, W / 2 + 138, y0 + 4);
+    ctx.fillStyle = '#fff'; ctx.font = '600 13px system-ui, sans-serif';
+    ctx.fillText(need > 0 ? `Need ${need} off ${left}` : 'Target reached!', W / 2 + 138, y0 + 24);
+    // this over
+    for (let i = 0; i < 6; i++) {
+      const v = overLog[i], x = W / 2 + 138 - (5 - i) * 19 - 8, y = y0 + 48;
+      ctx.fillStyle = v === undefined ? 'rgba(255,255,255,.2)' : v === 'W' ? '#e53935' : v === '6' ? '#8e24aa' : v === '4' ? '#1e88e5' : '#fff';
+      ctx.beginPath(); ctx.arc(x, y, 7.5, 0, 7); ctx.fill();
+      if (v !== undefined) { ctx.fillStyle = ['W', '6', '4'].includes(v) ? '#fff' : '#222'; ctx.font = '800 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x, y + .5); ctx.textAlign = 'right'; ctx.textBaseline = 'top'; }
+    }
+    ctx.restore();
+    if (banner) {
+      const big = /SIX|FOUR|BOWLED|Caught|WIN/.test(banner);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `900 ${big ? Math.round(Math.min(W, H) * .13) : 30}px system-ui, sans-serif`;
+      ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(banner, W / 2, H * .42);
+      ctx.fillStyle = shot && shot.out ? '#ff5252' : /SIX/.test(banner) ? '#e1bee7' : /FOUR/.test(banner) ? '#90caf9' : '#fff';
+      ctx.fillText(banner, W / 2, H * .42);
+    }
+  }
+  function draw() {
+    if (state === 'menu' && !del) { del = { speed: 20, bounce: 4, line: 0, rel: 0, crossH: .7, kmh: 0 }; phase = 'runup'; t = 0; runs = 0; wkts = 0; balls = 0; overLog = []; target = 0; setField(); }
+    if (phase === 'field' || (phase === 'result' && fieldAnim)) drawFieldView(); else drawBattingView();
+    if (state !== 'menu') drawHUD();
+  }
+
+  document.getElementById('go').addEventListener('click', () => { state = 'play'; startMatch(); });
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(.033, (now - last) / 1000) || .016; last = now;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

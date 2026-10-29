@@ -25,4 +25,20 @@ window.GAMES = [
     color: ['#8bc34a', '#558b2f'],
     emoji: '🐔',
   },
+  {
+    slug: 'stick-cricket',
+    title: 'Stick Cricket',
+    description: 'Chase the target in 3 overs. Time your shots, swipe up for sixes and dodge the fielders.',
+    tags: ['Sports', '1 player'],
+    color: ['#66bb6a', '#2e7d32'],
+    emoji: '🏏',
+  },
+  {
+    slug: 'ping-pong',
+    title: 'Neon Ping Pong',
+    description: 'Glowing table tennis against the computer. Swing for power, add spin and smash your way to 11.',
+    tags: ['Sports', '1 player'],
+    color: ['#3949ab', '#0b0f2e'],
+    emoji: '🏓',
+  },
 ];

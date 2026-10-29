@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#070b1f">
+<title>Neon Ping Pong</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; background: #070b1f; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: none; }
+  #home { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); z-index: 5;
+          padding: 7px 13px; border-radius: 20px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(7,11,31,.72); padding: 16px; backdrop-filter: blur(4px); }
+  .panel { text-align: center; width: min(360px, 100%); padding: 28px 22px; border-radius: 24px; background: linear-gradient(160deg, rgba(40,52,120,.9), rgba(16,20,52,.95));
+           border: 1px solid rgba(120,160,255,.35); box-shadow: 0 0 40px rgba(64,140,255,.35); }
+  .panel h1 { margin: 0; font-size: 34px; letter-spacing: 3px; text-shadow: 0 0 18px #4fc3ff; }
+  .panel p { color: #b8c4ff; margin: 10px 0 0; font-size: 15px; line-height: 1.45; }
+  .diff { display: flex; gap: 8px; margin-top: 18px; }
+  .diff button { flex: 1; padding: 10px 0; border-radius: 14px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; font-weight: 700; font-size: 14px; }
+  .diff button.sel { background: #4fc3ff; color: #06102a; border-color: #4fc3ff; box-shadow: 0 0 16px #4fc3ff; }
+  .go { margin-top: 18px; width: 100%; padding: 14px; border: 0; border-radius: 30px; font-size: 19px; font-weight: 800; letter-spacing: 1px;
+        background: linear-gradient(90deg, #ff4fa3, #ffb14f); color: #1a0b1f; box-shadow: 0 0 24px rgba(255,79,163,.6); }
+  .link { display: block; margin-top: 12px; color: #b8c4ff; font-size: 15px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="home" href="/">← All games</a>
+<div class="screen" id="menu"><div class="panel">
+  <h1 id="title">PING PONG</h1>
+  <p id="sub">Drag your finger to move the paddle. Swing into the ball to hit harder, and move sideways as you hit to add spin. First to 11, win by 2.</p>
+  <div class="diff" id="diff"><button data-d="0">Easy</button><button data-d="1" class="sel">Normal</button><button data-d="2">Pro</button></div>
+  <button class="go" id="go">PLAY</button>
+  <a class="link" href="/">All games</a>
+</div></div>
+<script>
+(() => {
+  // ---------- world: the table is 1 wide (x -0.5..0.5) and 1.8 long (y -0.9..0.9). You are at +y. ----------
+  const TW = 1, TL = 1.8, PR = 0.085, BR = 0.02, WIN = 11;
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let W, H, S, land, dpr;
+  function resize() {
+    dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; land = W > H;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const long = land ? W : H, short = land ? H : W;
+    S = Math.min(long / (TL + 0.75), short / (TW + 0.35));
+  }
+  addEventListener('resize', resize); resize();
+  // world -> screen (landscape turns the table sideways with you on the left)
+  const toScreen = (x, y) => land ? [W / 2 - y * S, H / 2 + x * S] : [W / 2 + x * S, H / 2 + y * S];
+  const toWorld = (sx, sy) => land ? [(sy - H / 2) / S, -(sx - W / 2) / S] : [(sx - W / 2) / S, (sy - H / 2) / S];
+
+  // ---------- audio (made on the fly, no files) ----------
+  let ac = null;
+  function beep(freq, dur, type = 'sine', vol = .2) {
+    if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dur);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+  }
+  const sfx = {
+    paddle: s => { beep(520 + s * 120, .08, 'triangle', .25); beep(1040, .03, 'square', .05); },
+    table: () => beep(300, .05, 'sine', .18),
+    point: win => { beep(win ? 660 : 330, .15, 'triangle', .2); setTimeout(() => beep(win ? 990 : 250, .2, 'triangle', .2), 120); },
+  };
+
+  // ---------- state ----------
+  const me = { x: 0, y: 0.95, vx: 0, vy: 0, tx: 0, ty: 0.95 };
+  const cpu = { x: 0, y: -0.95, vx: 0, vy: 0 };
+  let ball, score = [0, 0], server = 0, serves = 0, state = 'menu', diff = 1, pauseT = 0;
+  let trail = [], parts = [], flash = null, shake = 0, rally = 0, lastHitter = -1;
+  const DIFF = [{ speed: 1.3, err: .14, pace: .85 }, { speed: 1.9, err: .08, pace: 1 }, { speed: 2.6, err: .04, pace: 1.15 }];
+
+  function newPoint() {
+    const p = server === 0 ? me : cpu;
+    ball = { x: p.x, y: server === 0 ? .72 : -.72, vx: 0, vy: 0, spin: 0, z: .3, vz: 0, live: false, side: server === 0 ? 1 : -1 };
+    trail = []; rally = 0; lastHitter = -1; state = 'serve'; pauseT = .8;
+  }
+  function start() {
+    score = [0, 0]; server = 0; serves = 0;
+    me.x = 0; me.y = .95; cpu.x = 0; cpu.y = -.95;
+    if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    if (ac && ac.state === 'suspended') ac.resume();
+    document.getElementById('menu').style.display = 'none';
+    newPoint();
+  }
+
+  // ---------- input: the paddle follows your finger (a little above it so you can see it) ----------
+  let pointerDown = false;
+  function aim(e) {
+    const [x, y] = toWorld(e.clientX, e.clientY);
+    const lift = e.pointerType === 'touch' ? .14 : 0;
+    me.tx = Math.max(-.85, Math.min(.85, x)); me.ty = Math.max(.12, Math.min(1.25, y - lift));
+  }
+  cv.addEventListener('pointerdown', e => { pointerDown = true; aim(e); });
+  cv.addEventListener('pointermove', e => { if (pointerDown || e.pointerType === 'mouse') aim(e); });
+  addEventListener('pointerup', () => pointerDown = false);
+
+  // ---------- physics ----------
+  function hit(p, who) {
+    const d = DIFF[diff], dir = who === 0 ? -1 : 1;
+    let vy, vx;
+    if (who === 0) {
+      const swing = Math.max(0, -p.vy);                         // moving toward the net adds power
+      vy = -(Math.max(1.35, Math.abs(ball.vy) * .9 + swing * .45));
+      vx = (ball.x - p.x) / PR * .45 + p.vx * .25 + ball.vx * .2;
+      // gentle aim assist: keep the landing spot on the table
+      const t = (ball.y + TL / 2) / Math.abs(vy), land = ball.x + vx * t;
+      if (Math.abs(land) > .46) vx = (Math.sign(land) * .46 - ball.x) / t;
+      ball.spin = Math.max(-.6, Math.min(.6, p.vx * .5));       // a sideways swipe curves the ball
+    } else {
+      const pace = (1.45 + Math.random() * .6 + rally * .03) * d.pace;
+      const smash = Math.random() < .08 + diff * .06 && rally > 2;
+      vy = (smash ? pace * 1.45 : pace);
+      const aimX = (Math.random() * .8 - .4);
+      vx = (aimX - ball.x) * vy / (me.y - ball.y);
+      ball.spin = (Math.random() - .5) * d.pace * .8;
+      if (smash) say('SMASH!', '#ff4fa3');
+    }
+    const sp = Math.hypot(vx, vy), max = 4.2;
+    if (sp > max) { vx *= max / sp; vy *= max / sp; }
+    ball.vx = vx; ball.vy = vy; ball.live = true; ball.vz = 1.15; ball.z = Math.max(ball.z, .12);
+    lastHitter = who; rally++;
+    const fast = Math.hypot(vx, vy);
+    if (who === 0 && fast > 3.2) { say('SMASH!', '#4fc3ff'); shake = .25; }
+    sfx.paddle(Math.min(1, fast / 4));
+    burst(ball.x, ball.y, who === 0 ? '#4fc3ff' : '#ff4fa3', 14);
+    if (navigator.vibrate && who === 0) navigator.vibrate(12);
+  }
+  function burst(x, y, color, n) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * 7, s = .3 + Math.random() * .9; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, color }); }
+  }
+  function say(text, color) { flash = { text, color, t: 0 }; }
+  function point(winner) {
+    score[winner]++; sfx.point(winner === 0); state = 'point'; pauseT = 1.1;
+    say(winner === 0 ? 'POINT!' : 'CPU POINT', winner === 0 ? '#4fc3ff' : '#ff4fa3');
+    burst(ball.x, Math.max(-1, Math.min(1, ball.y)), winner === 0 ? '#4fc3ff' : '#ff4fa3', 30);
+    if (++serves >= 2 || (score[0] >= 10 && score[1] >= 10)) { serves = 0; server = 1 - server; }
+  }
+  function checkEnd() {
+    const [a, b] = score;
+    if ((a >= WIN || b >= WIN) && Math.abs(a - b) >= 2) {
+      state = 'over';
+      document.getElementById('title').textContent = a > b ? 'YOU WIN! 🏆' : 'CPU WINS';
+      document.getElementById('sub').textContent = `Final score ${a} – ${b}`;
+      document.getElementById('go').textContent = 'PLAY AGAIN';
+      document.getElementById('menu').style.display = 'flex';
+      return true;
+    }
+    return false;
+  }
+
+  function movePaddles(dt) {
+    // you: fast but smooth follow, so we can measure paddle speed for power
+    const px = me.x, py = me.y, k = Math.min(1, dt * 22);
+    me.x += (me.tx - me.x) * k; me.y += (me.ty - me.y) * k;
+    me.vx = (me.x - px) / dt; me.vy = (me.y - py) / dt;
+    // cpu: chases where the ball will be, limited by difficulty
+    const d = DIFF[diff];
+    let tx = 0, ty = -.98;
+    if (ball.live && ball.vy < 0) {
+      const t = (cpu.y - ball.y) / ball.vy;
+      tx = ball.x + ball.vx * t + ball.spin * t * t * .5 + (Math.sin(performance.now() / 700) * d.err);
+      ty = -.92 + Math.max(0, -ball.vy - 2) * -.05;
+    } else if (state === 'serve' && server === 1) { tx = ball.x; ty = -.82; }
+    tx = Math.max(-.8, Math.min(.8, tx));
+    const ox = cpu.x, oy = cpu.y, step = d.speed * dt;
+    cpu.x += Math.max(-step, Math.min(step, tx - cpu.x)); cpu.y += Math.max(-step, Math.min(step, ty - cpu.y));
+    cpu.vx = (cpu.x - ox) / dt; cpu.vy = (cpu.y - oy) / dt;
+  }
+  function update(dt) {
+    for (const p of parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .94; p.vy *= .94; }
+    parts = parts.filter(p => p.t < .6);
+    if (flash) { flash.t += dt; if (flash.t > 1) flash = null; }
+    shake = Math.max(0, shake - dt);
+    if (state === 'menu' || state === 'over') return;
+    movePaddles(dt);
+    if (state === 'point') { pauseT -= dt; if (pauseT <= 0 && !checkEnd()) newPoint(); return; }
+    if (state === 'serve') {
+      // the server's ball floats in front of their paddle until it's hit
+      pauseT -= dt;
+      ball.z = .25 + Math.sin(performance.now() / 180) * .08;
+      if (server === 0) {
+        ball.x += (me.x - ball.x) * Math.min(1, dt * 8);
+        if (Math.hypot(ball.x - me.x, ball.y - me.y) < PR + BR && me.vy < -.3) { hit(me, 0); state = 'play'; }
+      } else if (pauseT <= 0 && Math.hypot(ball.x - cpu.x, ball.y - cpu.y) < PR + BR + .05) { hit(cpu, 1); state = 'play'; }
+      return;
+    }
+    // ball flight: spin curves it, it bounces once on each side of the net
+    const steps = 3, h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      ball.vx += ball.spin * h; ball.spin *= Math.pow(.4, h);
+      ball.x += ball.vx * h; ball.y += ball.vy * h;
+      ball.vz -= 5.5 * h; ball.z += ball.vz * h;
+      if (ball.z <= 0) {
+        ball.z = 0; ball.vz = Math.abs(ball.vz) * .78 + .4;
+        if (Math.abs(ball.x) <= TW / 2 && Math.abs(ball.y) <= TL / 2) { sfx.table(); burst(ball.x, ball.y, 'rgba(255,255,255,.8)', 4); }
+      }
+      if (ball.vy > 0 && Math.hypot(ball.x - me.x, ball.y - me.y) < PR + BR) hit(me, 0);
+      if (ball.vy < 0 && Math.hypot(ball.x - cpu.x, ball.y - cpu.y) < PR + BR) hit(cpu, 1);
+    }
+    trail.push({ x: ball.x, y: ball.y, z: ball.z }); if (trail.length > 14) trail.shift();
+    if (ball.y > 1.35) point(1);
+    else if (ball.y < -1.35) point(0);
+    else if (Math.abs(ball.x) > .85) point(lastHitter === 0 ? 1 : 0);   // hit it wide: your opponent scores
+  }
+
+  // ---------- drawing ----------
+  function glowLine(x1, y1, x2, y2, color, w) {
+    const [a, b] = toScreen(x1, y1), [c, d] = toScreen(x2, y2);
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  function drawTable() {
+    const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .7);
+    bg.addColorStop(0, '#16205a'); bg.addColorStop(1, '#050816');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // floor grid
+    ctx.strokeStyle = 'rgba(80,120,255,.07)'; ctx.lineWidth = 1;
+    for (let g = -3; g <= 3; g += .25) { glowLineRaw(g, -3, g, 3); glowLineRaw(-3, g, 3, g); }
+    // table
+    const [x0, y0] = toScreen(-TW / 2, -TL / 2), [x1, y1] = toScreen(TW / 2, TL / 2);
+    const L = Math.min(x0, x1), T = Math.min(y0, y1), Wd = Math.abs(x1 - x0), Ht = Math.abs(y1 - y0);
+    ctx.shadowColor = 'rgba(79,195,255,.6)'; ctx.shadowBlur = 40;
+    const tg = ctx.createLinearGradient(L, T, L + Wd, T + Ht);
+    tg.addColorStop(0, '#0d3b8c'); tg.addColorStop(.5, '#0a2f75'); tg.addColorStop(1, '#082560');
+    ctx.fillStyle = tg; ctx.beginPath(); ctx.roundRect(L, T, Wd, Ht, 6); ctx.fill(); ctx.shadowBlur = 0;
+    const w = Math.max(2, S * .012);
+    glowLine(-TW / 2, -TL / 2, TW / 2, -TL / 2, '#e8f4ff', w); glowLine(-TW / 2, TL / 2, TW / 2, TL / 2, '#e8f4ff', w);
+    glowLine(-TW / 2, -TL / 2, -TW / 2, TL / 2, '#e8f4ff', w); glowLine(TW / 2, -TL / 2, TW / 2, TL / 2, '#e8f4ff', w);
+    glowLine(0, -TL / 2, 0, TL / 2, 'rgba(232,244,255,.45)', w * .5);
+    // net
+    glowLine(-TW / 2 - .06, 0, TW / 2 + .06, 0, '#ff4fa3', w * 1.6);
+    for (let x = -.5; x <= .5; x += .05) { const [a, b] = toScreen(x, 0); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(a - 1, b - 1, 2, 2); }
+  }
+  function glowLineRaw(x1, y1, x2, y2) { const [a, b] = toScreen(x1, y1), [c, d] = toScreen(x2, y2); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
+  function drawScores() {
+    // big faint numbers on each half of the table
+    ctx.font = `200 ${Math.round(S * .42)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const [ax, ay] = toScreen(0, .45), [bx, by] = toScreen(0, -.45);
+    ctx.globalAlpha = .28;
+    ctx.fillStyle = '#bfe9ff'; ctx.fillText(score[0], ax, ay);
+    ctx.fillStyle = '#ffc2e0'; ctx.fillText(score[1], bx, by);
+    ctx.globalAlpha = 1;
+  }
+  function drawPaddle(p, color, flip) {
+    const [x, y] = toScreen(p.x, p.y), r = PR * S;
+    // handle points away from the net
+    const [hx, hy] = toScreen(p.x, p.y + flip * PR * 1.7);
+    ctx.strokeStyle = '#c58b4e'; ctx.lineWidth = r * .38; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.shadowColor = color; ctx.shadowBlur = 22;
+    const g = ctx.createRadialGradient(x - r * .3, y - r * .3, r * .1, x, y, r);
+    g.addColorStop(0, '#fff'); g.addColorStop(.25, color); g.addColorStop(1, shadeDark(color));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  const shadeDark = c => c === '#4fc3ff' ? '#0b4f8a' : '#7a1046';
+  function drawBall() {
+    if (!ball) return;
+    // trail
+    for (let i = 0; i < trail.length; i++) {
+      const t = trail[i], [x, y] = toScreen(t.x, t.y), k = i / trail.length;
+      ctx.fillStyle = `rgba(255,214,120,${k * .35})`; ctx.beginPath(); ctx.arc(x, y - t.z * S * .25, BR * S * (0.4 + k * .8), 0, 7); ctx.fill();
+    }
+    const [x, y] = toScreen(ball.x, ball.y), r = BR * S * (1.4 + ball.z * .9);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x + ball.z * S * .1, y + ball.z * S * .12, BR * S * 1.3, BR * S * 1, 0, 0, 7); ctx.fill();
+    ctx.shadowColor = '#ffd27a'; ctx.shadowBlur = 20;
+    const g = ctx.createRadialGradient(x - r * .35, y - ball.z * S * .25 - r * .35, r * .1, x, y - ball.z * S * .25, r);
+    g.addColorStop(0, '#fff'); g.addColorStop(1, '#ffb347');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - ball.z * S * .25, r, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  function drawParts() {
+    for (const p of parts) {
+      const [x, y] = toScreen(p.x, p.y), k = 1 - p.t / .6;
+      ctx.fillStyle = p.color; ctx.globalAlpha = k; ctx.beginPath(); ctx.arc(x, y, 2.5 * k + 1, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawHUD() {
+    if (state === 'serve' && server === 0) {
+      ctx.font = '600 15px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+      const [sx, sy] = toScreen(0, .45); ctx.fillText('Your serve: flick the paddle forward', sx, sy);
+    }
+    if (flash) {
+      const k = flash.t;
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, k - .5) * 2);
+      ctx.font = `900 ${Math.round(Math.min(W, H) * .12 * (1 + Math.max(0, .15 - k)))}px system-ui, sans-serif`;
+      ctx.shadowColor = flash.color; ctx.shadowBlur = 30; ctx.fillStyle = '#fff';
+      ctx.fillText(flash.text, W / 2, H / 2); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+  }
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (shake > 0) ctx.translate((Math.random() - .5) * 14 * shake, (Math.random() - .5) * 14 * shake);
+    drawTable(); drawScores();
+    drawPaddle(cpu, '#ff4fa3', -1);
+    drawParts();
+    drawBall();
+    drawPaddle(me, '#4fc3ff', 1);
+    drawHUD();
+  }
+
+  // ---------- menu ----------
+  document.querySelectorAll('#diff button').forEach(b => b.addEventListener('click', () => {
+    diff = +b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('sel', x === b));
+  }));
+  document.getElementById('go').addEventListener('click', start);
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(.033, (now - last) / 1000) || .016; last = now;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+  ball = { x: 0, y: .72, vx: 0, vy: 0, spin: 0, z: .3, vz: 0, live: false };
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
