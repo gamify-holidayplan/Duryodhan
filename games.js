@@ -25,4 +25,12 @@ window.GAMES = [
     color: ['#8bc34a', '#558b2f'],
     emoji: '🐔',
   },
+  {
+    slug: 'flappy-wings',
+    title: 'Flappy Wings',
+    description: 'Tap to flap and squeeze through the gaps between pipes. One bump and it\'s over, so how far can you get?',
+    tags: ['Arcade', '1 player'],
+    color: ['#4ec0ca', '#2a8a96'],
+    emoji: '🐤',
+  },
 ];
