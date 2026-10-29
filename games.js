@@ -65,4 +65,12 @@ window.GAMES = [
     color: ['#1b7a43', '#0b2416'],
     emoji: '♠️',
   },
+  {
+    slug: 'poker-live',
+    title: 'Poker Night Live',
+    description: 'Texas Hold\'em with your friends over a link, with live video and voice at the table. Up to 6 players.',
+    tags: ['Cards', 'Multiplayer', 'Video'],
+    color: ['#c62828', '#4a0d0d'],
+    emoji: '🎥',
+  },
 ];

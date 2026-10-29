@@ -28,3 +28,36 @@ games/<slug>/index.html one folder per game
 - **8 Ball Pool** (`/games/8-ball-pool/`): solids vs stripes against the computer, with fouls, ball in hand and an aiming guideline.
 - **Flappy Wings** (`/games/flappy-wings/`): tap to flap through the gaps between pipes. Gaps get tighter as your score climbs.
 - **Hold'em Poker** (`/games/texas-holdem/`): no-limit Texas Hold'em vs 5 bots. 4 stake levels, buy-ins, blinds, side pots, saved bankroll with a daily bonus.
+- **Poker Night Live** (`/games/poker-live/`): multiplayer Texas Hold'em with friends over a share link, with live video and voice at each seat. Needs the game server below.
+
+## Poker Night Live server
+
+Multiplayer poker can't be a static page: the dealer has to live somewhere nobody can peek at the deck.
+It runs on Cloudflare (free plan) as a Worker with one Durable Object per table:
+
+```
+shared/poker-engine.js   rules, hand ranking, side pots (used by the server and the page)
+server/poker/            Cloudflare Worker + Durable Object (the dealer), and tests
+games/poker-live/        the page players open
+```
+
+- Live server: `https://poker-live.dixshant4.workers.dev` (set as `API` in `games/poker-live/index.html`).
+- Deploy after changing `server/` or `shared/`: `cd server/poker && npm install && npx wrangler deploy`
+  (needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment).
+- Tests: `node server/poker/test/engine.test.mjs` (rules fuzz test), and with `npx wrangler dev` running,
+  `BASE=http://127.0.0.1:8787 node server/poker/test/table.test.mjs` (bots play a full table).
+- Try the page against a local server: `/games/poker-live/?api=http://127.0.0.1:8787`.
+
+**Video.** By default phones send video to each other directly (peer-to-peer), with the server only passing
+the connection messages along. That's free and works on most Wi-Fi and 4G, but some mobile networks block direct
+connections. For sturdier video, create a free [LiveKit Cloud](https://cloud.livekit.io) project and, in the
+Cloudflare dashboard under Workers & Pages → `poker-live` → Settings → Variables and Secrets, add:
+
+| Name | Value |
+|---|---|
+| `LIVEKIT_URL` | the project's `wss://….livekit.cloud` URL |
+| `LIVEKIT_API_KEY` | API key from LiveKit → Settings → API Keys |
+| `LIVEKIT_API_SECRET` | the matching API secret (add it as a Secret) |
+
+New tables then use LiveKit automatically; if it can't connect, the page falls back to peer-to-peer.
+

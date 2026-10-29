@@ -1,0 +1,13 @@
+{
+  "name": "poker-live-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test/engine.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.45.0"
+  }
+}

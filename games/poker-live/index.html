@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b2416">
+<title>Poker Night Live</title>
+<style>
+  :root { --gold: #ffca28; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; color: #fff;
+               background: radial-gradient(900px 600px at 50% 30%, #12402a, #06150d); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font-family: inherit; }
+  button { cursor: pointer; }
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
+  .screen.on { display: flex; }
+  .pill { padding: 7px 12px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; border: 0; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .pill.off { background: #b71c1c; }
+  .badge { background: #e53935; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 3px; }
+
+  /* ---------- home & join ---------- */
+  .page { overflow-y: auto; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+  .wrap { width: min(480px, 100%); }
+  .wrap h1 { font-size: 30px; margin: 18px 0 4px; }
+  .sub { color: #a5c9b3; margin: 0 0 18px; font-size: 15px; line-height: 1.45; }
+  .card-box { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 16px; margin-bottom: 14px; }
+  .card-box h2 { margin: 0 0 12px; font-size: 18px; }
+  label { display: block; font-size: 13px; color: #a5c9b3; margin: 10px 0 5px; }
+  input[type=text], select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.35); color: #fff; font-size: 16px; }
+  .avs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .avs button { font-size: 24px; width: 44px; height: 44px; border-radius: 12px; border: 2px solid transparent; background: rgba(0,0,0,.3); }
+  .avs button.sel { border-color: var(--gold); background: rgba(255,202,40,.15); }
+  .row2 { display: flex; gap: 10px; } .row2 > div { flex: 1; }
+  .big-btn { display: block; width: 100%; margin-top: 14px; padding: 15px; border-radius: 30px; font-size: 17px; font-weight: 800; border: 0; background: var(--gold); color: #222; }
+  .big-btn.alt { background: rgba(255,255,255,.12); color: #fff; }
+  .big-btn:disabled { opacity: .5; }
+  .preview { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; margin: 6px auto 4px; background: #000; display: flex; align-items: center; justify-content: center; font-size: 54px; border: 3px solid var(--gold); }
+  .preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .err { color: #ff8a80; font-size: 14px; min-height: 18px; margin-top: 8px; text-align: center; }
+  .small { color: #8fb39d; font-size: 13px; line-height: 1.5; }
+
+  /* ---------- table ---------- */
+  #top { display: flex; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 4px calc(10px + env(safe-area-inset-left)); }
+  #top .mid { flex: 1; text-align: center; font-size: 12px; color: #a5c9b3; line-height: 1.2; min-width: 0; }
+  #top .mid b { color: var(--gold); font-size: 14px; }
+  #top .pill { padding: 7px 10px; }
+  #banner { display: none; background: #e65100; text-align: center; font-size: 13px; font-weight: 700; padding: 4px; }
+  #tbl { flex: 1; position: relative; min-height: 0; width: 100%; max-width: 980px; margin: 0 auto; }
+  .felt { position: absolute; left: 7%; right: 7%; top: 9%; bottom: 12%; border-radius: 999px;
+          background: radial-gradient(ellipse at 50% 40%, #2fa564, #157540 55%, #0c4a28);
+          border: 10px solid #5a3415; box-shadow: inset 0 0 0 3px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.55), 0 12px 30px rgba(0,0,0,.6); }
+
+  .seat { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: 88px; transition: opacity .3s; }
+  .seat.out { opacity: .5; }
+  .plate { position: relative; z-index: 1; width: 88px; background: rgba(8,12,18,.88); border: 2px solid rgba(255,255,255,.15); border-radius: 14px; padding: 4px 4px 3px; text-align: center; transition: box-shadow .2s, border-color .2s; }
+  .seat.turn .plate { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,202,40,.3), 0 0 18px rgba(255,202,40,.6); }
+  .seat.win .plate { border-color: #69f0ae; box-shadow: 0 0 20px #69f0ae; }
+  .seat.empty .plate { background: rgba(0,0,0,.3); border-style: dashed; }
+  .face { --p: 0; position: relative; width: 56px; height: 56px; margin: 0 auto 2px; border-radius: 50%; padding: 3px;
+          background: conic-gradient(var(--gold) calc(var(--p) * 360deg), rgba(255,255,255,.12) 0); cursor: pointer; }
+  .face.low { background: conic-gradient(#ff5252 calc(var(--p) * 360deg), rgba(255,255,255,.12) 0); }
+  .slot { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1c2630; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .slot video { width: 100%; height: 100%; object-fit: cover; }
+  .slot.on .emo { display: none; }
+  video.mirror { transform: scaleX(-1); }
+  .mic-off { position: absolute; right: -4px; bottom: -2px; font-size: 12px; background: #b71c1c; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+  .offline { position: absolute; left: -4px; bottom: -2px; font-size: 11px; background: #455a64; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+  .nm { font-size: 11px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { font-size: 13px; font-weight: 800; color: var(--gold); }
+  .hn { font-size: 9.5px; color: #b9f6ca; font-weight: 700; line-height: 1.2; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seat.me .hn { display: none; }
+  .sitbtn { border: 0; border-radius: 10px; background: #2e7d32; color: #fff; font-weight: 800; padding: 8px 10px; margin: 18px 0; font-size: 13px; }
+  .tag { position: absolute; left: 50%; top: -11px; transform: translateX(-50%); font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px;
+         background: #455a64; white-space: nowrap; text-transform: uppercase; letter-spacing: .3px; z-index: 2; }
+  .tag.fold { background: #616161; } .tag.raise, .tag.bet { background: #e65100; } .tag.call, .tag.check { background: #1565c0; }
+  .tag.allin { background: #c62828; } .tag.win { background: #2e7d32; } .tag.sb, .tag.bb { background: #6a1b9a; } .tag.away { background: #37474f; }
+  .cards { display: flex; gap: 2px; margin-bottom: -10px; min-height: 10px; }
+  .seat .cards { --w: min(7.5vw, 30px); }
+  .seat.me .cards { --w: min(15vw, 60px, 9vh); gap: 4px; margin-bottom: -6px; }
+
+  .card { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); background: #fff; color: #111;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; line-height: .95;
+          box-shadow: 0 2px 5px rgba(0,0,0,.45); transition: transform .2s, box-shadow .2s; flex: none; }
+  .card .r { font-size: calc(var(--w) * .44); letter-spacing: -1px; }
+  .card .s { font-size: calc(var(--w) * .42); }
+  .card.red { color: #d32f2f; }
+  .card.back { background: repeating-linear-gradient(45deg, #b71c1c 0 4px, #d84343 4px 8px); border: 2px solid #fff; }
+  .card.dim { filter: brightness(.5); }
+  .card.hl { box-shadow: 0 0 0 3px #69f0ae, 0 0 14px #69f0ae; transform: translateY(-5px); }
+  .card.deal { animation: deal .35s ease-out both; }
+  @keyframes deal { from { transform: translateY(-40px) scale(.5) rotate(-12deg); opacity: 0; } }
+
+  #center { position: absolute; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 8px; width: 80%; pointer-events: none; }
+  #board { display: flex; gap: 4px; --w: min(11vw, 54px, 8.5vh); }
+  .bslot { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); border: 2px dashed rgba(255,255,255,.13); }
+  #pot { font-weight: 800; background: rgba(0,0,0,.4); padding: 4px 12px; border-radius: 14px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  #msg { max-width: 58vw; font-size: 13px; text-align: center; min-height: 17px; font-weight: 700; text-shadow: 0 1px 3px #000; color: #e8f5e9; }
+  .bet { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 800; background: rgba(0,0,0,.55); padding: 2px 8px 2px 3px; border-radius: 12px; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .chip { width: 15px; height: 15px; border-radius: 50%; display: inline-block; flex: none;
+          background: radial-gradient(circle, #fff 0 22%, #e53935 23% 55%, #fff 56% 68%, #e53935 69%); box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .dealer { position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #111; font-weight: 900; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .bubble { position: absolute; transform: translate(-50%, -100%); background: #fff; color: #111; font-size: 12px; font-weight: 600; padding: 5px 9px; border-radius: 12px;
+            max-width: 150px; z-index: 6; box-shadow: 0 4px 10px rgba(0,0,0,.4); animation: pop .2s ease-out; pointer-events: none; }
+  .fly { position: absolute; font-size: 34px; z-index: 7; pointer-events: none; animation: fly 1.6s ease-out forwards; }
+  @keyframes fly { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 15% { opacity: 1; transform: translate(-50%, -80%) scale(1.3); } 100% { transform: translate(-50%, -190%) scale(1); opacity: 0; } }
+  @keyframes pop { from { transform: translate(-50%, -100%) scale(.6); opacity: 0; } }
+
+  /* ---------- action bar ---------- */
+  #bar { padding: 8px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left)); background: rgba(0,0,0,.55); border-top: 1px solid rgba(255,255,255,.08); }
+  #bar > * { max-width: 620px; margin-left: auto; margin-right: auto; }
+  .info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #cfd8dc; min-height: 28px; margin-bottom: 6px; gap: 8px; }
+  .info b { color: #fff; }
+  .tg { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #cfd8dc; border-radius: 14px; padding: 5px 10px; font-size: 12px; font-weight: 700; }
+  .tg.on { background: #1565c0; border-color: #1565c0; color: #fff; }
+  .btns { display: flex; gap: 8px; }
+  .btns button { flex: 1; padding: 0 4px; height: 50px; border-radius: 14px; border: 0; font-size: 16px; font-weight: 800; color: #fff; }
+  .b-fold { background: #c62828; } .b-call { background: #1565c0; } .b-raise { background: #ef6c00; } .b-back { background: #455a64; flex: .6 !important; }
+  .b-go { background: #2e7d32; } .b-gold { background: var(--gold); color: #222 !important; }
+  .wait { height: 50px; display: flex; align-items: center; justify-content: center; color: #90a4ae; font-size: 14px; font-weight: 600; border-radius: 14px; background: rgba(255,255,255,.04); text-align: center; padding: 0 8px; }
+  .presets { display: flex; gap: 6px; margin-bottom: 8px; }
+  .presets button { flex: 1; padding: 9px 2px; border-radius: 10px; border: 0; background: #37474f; color: #fff; font-weight: 700; font-size: 13px; }
+  .slrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .slrow b { min-width: 74px; text-align: right; color: var(--gold); font-size: 16px; }
+  input[type=range] { flex: 1; height: 32px; accent-color: #ef6c00; margin: 0; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--gold); }
+
+  @media (orientation: landscape) and (max-height: 500px) {
+    .seat.me { flex-direction: row; width: auto; gap: 6px; }
+    .seat.me .cards { margin: 0; --w: min(10vh, 44px); }
+    .face { width: 44px; height: 44px; } .slot { font-size: 22px; }
+    #center { flex-direction: row; justify-content: center; gap: 10px; }
+    #pot[style*=hidden] { display: none; }
+    .hn, #msg { display: none; }
+    #bar { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
+    #bar > * { margin: 0; max-width: none; }
+    #bar .info { flex: 0 1 30%; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 0; }
+    #bar .body { flex: 1; }
+    .btns button, .wait { height: 42px; }
+    .rp { display: flex; gap: 8px; align-items: center; }
+    .rp .presets { margin: 0; flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .rp .presets button { padding: 3px 8px; font-size: 11px; }
+    .rrow { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; }
+    .rrow .slrow { flex: 1; margin: 0; } .rrow .btns { flex: 1; }
+    .rrow .slrow b { min-width: 48px; font-size: 14px; } .rrow .btns button { font-size: 14px; }
+  }
+
+  /* ---------- sheets & modals ---------- */
+  #modal { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); padding: 16px; }
+  .panel { background: #fff; color: #222; border-radius: 20px; padding: 22px 20px; width: min(380px, 100%); max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .panel h2 { margin: 0 0 8px; font-size: 22px; text-align: center; }
+  .panel p { color: #666; font-size: 14px; margin: 6px 0; line-height: 1.4; text-align: center; }
+  .panel label { color: #666; }
+  .panel select, .panel input[type=text] { background: #f3f3f3; color: #222; border-color: #ddd; }
+  .panel .pb { display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 30px; font-size: 16px; font-weight: 700; border: 0; background: #eee; color: #333; }
+  .panel .pb.ok { background: var(--gold); color: #222; } .panel .pb.go { background: #2e7d32; color: #fff; } .panel .pb.bad { background: #c62828; color: #fff; }
+  .plist { margin: 8px 0; }
+  .plist div { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px; border-bottom: 1px solid #eee; font-size: 15px; gap: 8px; }
+  .plist button { border: 0; border-radius: 10px; background: #ffebee; color: #c62828; font-weight: 700; padding: 6px 10px; }
+  .pos { color: #2e7d32; font-weight: 800; } .neg { color: #c62828; font-weight: 800; }
+  .bigvid { width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: #000; }
+  .bigvid video { width: 100%; height: 100%; object-fit: cover; }
+  .reacts { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .reacts button { font-size: 28px; border: 0; background: #f3f3f3; border-radius: 12px; width: 50px; height: 50px; }
+
+  #chat { position: fixed; right: 0; top: 0; bottom: 0; width: min(340px, 100%); z-index: 15; background: #0e1a14; border-left: 1px solid rgba(255,255,255,.1);
+          display: none; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+  #chat.on { display: flex; }
+  #chatlog { flex: 1; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; user-select: text; -webkit-user-select: text; }
+  #chatlog div b { color: var(--gold); }
+  .chatin { display: flex; gap: 6px; }
+  .chatin input { flex: 1; }
+  .chatin button { border: 0; border-radius: 12px; background: var(--gold); font-weight: 800; padding: 0 14px; }
+  #toast { position: fixed; left: 50%; top: calc(60px + env(safe-area-inset-top)); transform: translateX(-50%); background: rgba(0,0,0,.85); padding: 8px 14px; border-radius: 16px;
+           font-size: 14px; z-index: 30; display: none; max-width: 90vw; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="home" class="screen page"></div>
+<div id="join" class="screen page"></div>
+<div id="game" class="screen">
+  <div id="top"></div>
+  <div id="banner">Reconnecting…</div>
+  <div id="tbl"></div>
+  <div id="bar"></div>
+</div>
+<div id="chat">
+  <div style="display:flex;justify-content:space-between;align-items:center"><b>Table chat</b><button class="pill" data-a="chat-close">✕</button></div>
+  <div id="chatlog"></div>
+  <form class="chatin" id="chatform"><input type="text" id="chatinput" maxlength="140" placeholder="Say something…" autocomplete="off"><button>Send</button></form>
+</div>
+<div id="modal"></div>
+<div id="toast"></div>
+<div id="audios" style="display:none"></div>
+
+<script type="module">
+import * as E from '/shared/poker-engine.js';
+
+// ---------- config ----------
+const params = new URLSearchParams(location.search);
+const API = params.get('api') || 'https://poker-live.dixshant4.workers.dev';
+const AVATARS = ['😎', '🦊', '🐼', '🐯', '🦁', '🐸', '🐵', '🐨', '🐻', '🦉', '🐙', '🦄', '🐲', '🐧', '🐱', '🐶', '👑', '🤠'];
+const BLINDS = [[5, 10], [10, 20], [25, 50], [50, 100], [100, 200], [250, 500], [500, 1000]];
+const REACTIONS = ['😂', '🔥', '😱', '👏', '🤡', '💸', '😭', '🙏'];
+const ICE = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = n => n >= 1e6 ? +(n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? +(n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'K' : n.toLocaleString('en-US');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+const rid = n => { const r = new Uint8Array(n); crypto.getRandomValues(r); return [...r].map(x => x.toString(16).padStart(2, '0')).join(''); };
+function show(id) { for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id); }
+let toastTimer;
+function toast(text, ms = 2500) { const el = $('toast'); el.textContent = text; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, ms); }
+
+// ---------- profile ----------
+const profile = { name: store.get('pl-name', ''), av: store.get('pl-av', AVATARS[Math.floor(Math.random() * AVATARS.length)]) };
+function profileFields() {
+  return `<label>Your name</label><input type="text" id="pname" maxlength="14" placeholder="e.g. Dix" value="${esc(profile.name)}">
+    <label>Avatar (shown when your camera is off)</label>
+    <div class="avs">${AVATARS.map(a => `<button type="button" data-a="av" data-v="${a}" class="${a === profile.av ? 'sel' : ''}">${a}</button>`).join('')}</div>`;
+}
+function readProfile() {
+  const name = ($('pname').value || '').trim().slice(0, 14);
+  if (!name) { $('pname').focus(); return false; }
+  profile.name = name; store.set('pl-name', name); store.set('pl-av', profile.av);
+  return true;
+}
+
+// ---------- sound ----------
+let ac = null, muted = store.get('pl-sfx-off', false);
+function unlockAudio() {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (ac && ac.state === 'suspended') ac.resume();
+}
+function tone(freq, dur, type, vol, slide) {
+  if (!ac || muted) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime;
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t0 + dur);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + dur);
+}
+function noise(dur, vol, freq) {
+  if (!ac || muted) return;
+  const len = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
+  s.connect(f).connect(g).connect(ac.destination); s.start();
+}
+const sfx = {
+  card: () => noise(0.08, 0.4, 3000),
+  chip: () => { tone(2400, 0.05, 'triangle', 0.05); setTimeout(() => tone(2900, 0.05, 'triangle', 0.04), 45); },
+  check: () => { tone(300, 0.05, 'square', 0.03); setTimeout(() => tone(300, 0.05, 'square', 0.03), 90); },
+  fold: () => noise(0.15, 0.25, 1200),
+  turn: () => { tone(660, 0.12, 'sine', 0.09); setTimeout(() => tone(990, 0.16, 'sine', 0.08), 110); },
+  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.07), i * 95)),
+  tick: () => tone(1200, 0.03, 'square', 0.03),
+};
+
+// ---------- home: create or join ----------
+function renderHome() {
+  const blindOpts = BLINDS.map(([s, b]) => `<option value="${b}" ${b === 20 ? 'selected' : ''}>${fmt(s)} / ${fmt(b)}</option>`).join('');
+  $('home').innerHTML = `<div class="wrap">
+    <a class="pill" href="/">← All games</a>
+    <h1>🎥 Poker Night Live</h1>
+    <p class="sub">Texas Hold'em with your friends, face to face. Create a table, send the link, and play with live video and voice.</p>
+    <div class="card-box">
+      <h2>Create a table</h2>
+      ${profileFields()}
+      <div class="row2">
+        <div><label>Blinds</label><select id="cblinds">${blindOpts}</select></div>
+        <div><label>Starting chips</label><select id="cstack"><option value="50">50 big blinds</option><option value="100" selected>100 big blinds</option><option value="200">200 big blinds</option></select></div>
+      </div>
+      <label>Time to act</label><select id="ctime"><option value="15">15 seconds</option><option value="25" selected>25 seconds</option><option value="40">40 seconds</option><option value="60">60 seconds</option></select>
+      <button class="big-btn" data-a="create" id="createbtn">Create table</button>
+      <div class="err" id="cerr"></div>
+    </div>
+    <div class="card-box">
+      <h2>Have a code?</h2>
+      <div class="row2"><div><input type="text" id="jcode" maxlength="5" placeholder="ABC12" style="text-transform:uppercase"></div><div style="flex:0 0 auto"><button class="big-btn" style="margin:0;padding:12px 20px" data-a="joincode">Join</button></div></div>
+    </div>
+    <p class="small">Up to 6 players per table, plus anyone else can watch. Chips are just for this game: everyone starts with the same stack and the host can end the game to see who won.</p>
+  </div>`;
+}
+
+async function createTable() {
+  if (!readProfile()) { $('cerr').textContent = 'Enter your name first'; return; }
+  const bb = +$('cblinds').value, stack = bb * +$('cstack').value, turnSecs = +$('ctime').value;
+  $('createbtn').disabled = true; $('cerr').textContent = '';
+  try {
+    const res = await fetch(`${API}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bb, stack, turnSecs }) });
+    const j = await res.json();
+    if (!res.ok || !j.code) throw new Error(j.error || 'Could not create a table');
+    store.set('pl-host-' + j.code, j.hostKey);
+    store.set('pl-autosit-' + j.code, true);
+    goTable(j.code);
+  } catch (e) {
+    $('cerr').textContent = 'Could not reach the poker server. Check your connection and try again.';
+    $('createbtn').disabled = false;
+  }
+}
+
+function goTable(code) {
+  const url = new URL(location.href);
+  url.searchParams.set('t', code);
+  history.pushState({}, '', url);
+  renderJoin(code);
+}
+
+// ---------- join: name + camera check ----------
+let preview = null;
+function renderJoin(code) {
+  show('join');
+  $('join').innerHTML = `<div class="wrap">
+    <a class="pill" href="${location.pathname}${params.get('api') ? '?api=' + encodeURIComponent(API) : ''}">← Back</a>
+    <h1>Table ${esc(code)}</h1>
+    <p class="sub">You're about to join a live poker table. Your camera and mic are on by default so everyone can see the reactions. You can turn them off any time.</p>
+    <div class="card-box">
+      <div class="preview" id="pv">${profile.av}</div>
+      ${profileFields()}
+      <button class="big-btn" data-a="join-video">🎥 Join with camera & mic</button>
+      <button class="big-btn alt" data-a="join-novideo">Join without video</button>
+      <div class="err" id="jerr"></div>
+    </div>
+  </div>`;
+}
+
+async function joinTable(withVideo) {
+  if (!readProfile()) { $('jerr').textContent = 'Enter your name first'; return; }
+  unlockAudio();
+  const code = params.get('t') || new URL(location.href).searchParams.get('t');
+  if (withVideo) await V.startLocal();
+  V.camOn = !!(V.local && V.local.getVideoTracks().length);
+  V.micOn = !!(V.local && V.local.getAudioTracks().length);
+  if (withVideo && !V.local) toast("Couldn't turn on your camera, joining without video", 3500);
+  startGame(code.toUpperCase());
+}
+
+// ---------- connection to the table ----------
+let S = null;            // latest state from the server
+let me = null, CODE = null, ws = null, fatal = false, retry = 0, offset = 0;
+let pendingAct = false, raiseOpen = false, raiseTo = 0, auto = false, autoHand = -1;
+let lastTurnKey = '', prevState = null, chatUnread = 0;
+const seen = new Map();  // card animation start times
+const chatLog = [];
+
+function ident(code) {
+  let id = store.get('pl-id-' + code, null);
+  if (!id) { id = { id: 'p' + rid(10), secret: rid(24) }; store.set('pl-id-' + code, id); }
+  return id;
+}
+
+function startGame(code) {
+  CODE = code;
+  show('game');
+  connect();
+  // keep the connection alive and come back quickly after the phone sleeps
+  setInterval(() => { if (ws && ws.readyState === 1) ws.send('ping'); }, 25000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && (!ws || ws.readyState > 1) && !fatal) connect(); });
+  requestAnimationFrame(tickClock);
+}
+
+function connect() {
+  if (ws && ws.readyState <= 1) return;
+  const { id, secret } = ident(CODE);
+  ws = new WebSocket(`${API.replace(/^http/, 'ws')}/api/rooms/${CODE}/ws`);
+  ws.onopen = () => {
+    retry = 0; $('banner').style.display = 'none';
+    send({ t: 'hello', id, secret, name: profile.name, av: profile.av, hostKey: store.get('pl-host-' + CODE, undefined) });
+  };
+  ws.onmessage = ev => { if (ev.data !== 'pong') onMessage(JSON.parse(ev.data)); };
+  ws.onclose = () => {
+    if (fatal) return;
+    $('banner').style.display = 'block';
+    setTimeout(connect, Math.min(5000, 600 * 2 ** retry++));
+  };
+}
+function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+function onMessage(m) {
+  if (m.t === 'welcome') {
+    me = m.you;
+    chatLog.length = 0; chatLog.push(...(m.chat || [])); renderChat();
+    if (m.livekit && !V.lk && !V.lkFailed) V.startLiveKit(m.livekit);
+    sendMedia();
+  } else if (m.t === 'state') {
+    offset = m.now - Date.now();
+    prevState = S; S = m;
+    pendingAct = false;
+    autoSit();
+    effects();
+    render();
+    V.syncPeers();
+    if (S.ended) showResults();
+  } else if (m.t === 'error') {
+    if (m.fatal) { fatal = true; try { ws.close(); } catch (e) {} modal(`<h2>Can't join</h2><p>${esc(m.msg)}</p><button class="pb ok" data-a="gohome">OK</button>`); }
+    else { toast(m.msg); pendingAct = false; if (S) renderBar(); }
+  } else if (m.t === 'rtc') V.onSignal(m.from, m.data);
+  else if (m.t === 'chat') { chatLog.push(m.msg); if (chatLog.length > 60) chatLog.shift(); renderChat(); onChatMsg(m.msg); }
+  else if (m.t === 'react') flyReaction(m);
+}
+
+// the person who created the table, and anyone joining for the first time, sit straight down
+function autoSit() {
+  if (!S || S.ended || mySeat() >= 0) return;
+  const key = 'pl-autosit-' + CODE;
+  if (store.get(key, true) === false) return;
+  const free = S.table.seats.findIndex(s => !s);
+  store.set(key, false);
+  if (free >= 0) send({ t: 'sit', seat: free });
+}
+
+const mySeat = () => S ? S.table.seats.findIndex(s => s && s.id === me) : -1;
+const player = id => S && S.players.find(p => p.id === id);
+const isHost = () => S && S.hostId === me;
+
+// sounds and buzzes from what changed
+function effects() {
+  const t = S.table, p = prevState && prevState.table;
+  if (!p) return;
+  if (t.board.length > p.board.length || (t.handNo !== p.handNo && t.phase === 'hand')) sfx.card();
+  t.seats.forEach((s, i) => {
+    const q = p.seats[i];
+    if (!s || !q || s.id !== q.id || s.act === q.act || t.handNo !== p.handNo) return;
+    if (s.act === 'Fold') sfx.fold(); else if (s.act === 'Check') sfx.check(); else if (s.act) sfx.chip();
+  });
+  const i = mySeat();
+  if (i >= 0 && t.toAct === i && !t.await) {
+    const key = `${t.handNo}|${t.board.length}|${t.curBet}|${t.acted.length}`;
+    if (key !== lastTurnKey) {
+      lastTurnKey = key;
+      if (auto && autoHand === t.handNo) { const L = E.legal(t, i); act(L.canCheck ? 'check' : 'fold'); return; }
+      sfx.turn();
+      if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {}
+      raiseOpen = false;
+    }
+  }
+  if (t.result && (!p.result || p.handNo !== t.handNo) && i >= 0 && t.seats[i] && t.seats[i].won > 0) sfx.win();
+}
+
+function act(action, to) {
+  if (pendingAct) return;
+  pendingAct = true; raiseOpen = false;
+  send({ t: 'act', action, to });
+  renderBar();
+}
+
+// ---------- rendering ----------
+function cardHTML(c, key, extra = '') {
+  const now = performance.now();
+  if (!seen.has(key)) seen.set(key, now);
+  const age = now - seen.get(key);
+  const anim = age < 350 ? ` deal" style="animation-delay:-${Math.round(age)}ms` : '';
+  if (c == null) return `<div class="card back${anim}"></div>`;
+  const r = E.cardRank(c), s = E.cardSuit(c);
+  const hl = S.table.result && S.table.result.hl && S.table.result.hl.includes(c) ? ' hl' : '';
+  return `<div class="card${s === 1 || s === 2 ? ' red' : ''}${hl}${extra}${anim}"><span class="r">${E.rankLabel(r)}</span><span class="s">${E.SUITS[s]}</span></div>`;
+}
+
+function layout() {
+  const box = $('tbl').getBoundingClientRect(), W = box.width, H = box.height;
+  const compact = W > H && innerHeight <= 500;
+  const POS = H >= W
+    ? [[50, 85], [12, 66], [12, 25], [50, 9], [88, 25], [88, 66]]
+    : [[50, 84], [17, 70], [17, 27], [50, 10], [83, 27], [83, 70]];
+  const meHalf = compact ? 40 : 84, botHalf = compact ? 54 : 62;
+  const seatY = k => k === 0 ? (compact ? H - meHalf - 4 : Math.min(POS[0][1] / 100 * H, H - meHalf))
+                             : Math.max(POS[k][1] / 100 * H, botHalf + 2);
+  return { W, H, compact, POS, meHalf, botHalf, seatY, cx: W / 2, cy: (seatY(3) + botHalf + seatY(0) - meHalf) / 2 };
+}
+
+function render() {
+  if (!S) return;
+  renderTop();
+  renderBar();
+  const t = S.table, L = layout(), my = mySeat();
+  const base = my >= 0 ? my : 0; // my seat is always drawn at the bottom
+  let html = '<div class="felt"></div>';
+  for (let i = 0; i < E.SEATS; i++) {
+    const k = (i - base + E.SEATS) % E.SEATS, s = t.seats[i];
+    const x = L.POS[k][0] / 100 * L.W, y = L.seatY(k);
+    if (!s) {
+      const canSit = my < 0 && !S.ended;
+      html += `<div class="seat empty" style="left:${x}px;top:${y}px"><div class="plate">${canSit ? `<button class="sitbtn" data-a="sit" data-v="${i}">Sit here</button>` : '<div class="nm" style="margin:26px 0">Empty seat</div>'}</div></div>`;
+      continue;
+    }
+    const p = player(s.id) || {};
+    const mine = s.id === me;
+    const out = (!s.inHand || s.folded) && t.phase === 'hand';
+    const cls = ['seat', mine ? 'me' : '', out ? 'out' : '', t.toAct === i && !t.await ? 'turn' : '', s.won > 0 && t.phase !== 'hand' ? 'win' : ''].join(' ');
+    let cards = '';
+    if (s.hole.length && (s.inHand || mine) && (!s.folded || mine)) {
+      cards = s.hole.map((c, j) => cardHTML(c, `${t.handNo}-${i}-${j}-${c == null ? 'd' : 'u'}`, mine && s.folded ? ' dim' : '')).join('');
+    }
+    const label = s.won > 0 && t.phase !== 'hand' ? `<div class="tag win">+${fmt(s.won)}</div>`
+      : s.sitOut ? '<div class="tag away">Away</div>'
+      : s.act ? `<div class="tag ${s.act.toLowerCase().replace('-', '')}">${esc(s.act)}</div>` : '';
+    const hand = t.result && t.result.hands && s.show ? (t.result.hands.find(h => h.seat === i) || {}).hand : '';
+    html += `<div class="${cls}" style="left:${x}px;top:${y}px" data-seat="${i}">
+      <div class="cards">${cards}</div>
+      <div class="plate">${label}
+        <div class="face" data-a="face" data-v="${esc(s.id)}" id="face-${i}"><div class="slot" data-vid="${esc(s.id)}"><span class="emo">${esc(s.av)}</span></div>
+          ${(mine ? !V.micOn : p.online && !p.mic) ? '<span class="mic-off">🔇</span>' : ''}${p.online === false ? '<span class="offline">💤</span>' : ''}</div>
+        <div class="nm">${esc(s.name)}${S.hostId === s.id ? ' 👑' : ''}</div><div class="st">${s.allIn && t.phase === 'hand' ? 'ALL-IN' : fmt(s.stack)}</div>
+        ${hand ? `<div class="hn">${esc(hand)}</div>` : ''}
+      </div></div>`;
+    const dx = L.cx - x, dy = L.cy - y, d = Math.hypot(dx, dy) || 1;
+    let bx = k === 0 ? x : x + dx / d * Math.min(76, d * 0.5);
+    let by = k === 0 ? y - L.meHalf - 14 : y + dy / d * Math.min(76, d * 0.5);
+    if (L.compact && k === 3) { bx = x - 84; by = y + 25; }
+    if (s.bet > 0) html += `<div class="bet" style="left:${bx}px;top:${by}px"><i class="chip"></i>${fmt(s.bet)}</div>`;
+    if (t.handNo && i === t.dealer) {
+      const [ox, oy] = k === 0 ? (L.compact ? [100, 0] : [80, 30]) : L.POS[k][0] === 50 ? [64, 30] : [Math.sign(dx) * 56, 48];
+      html += `<div class="dealer" style="left:${x + ox}px;top:${y + oy}px">D</div>`;
+    }
+  }
+  let board = '';
+  for (let k = 0; k < 5; k++) board += t.board[k] != null ? cardHTML(t.board[k], `${t.handNo}-b${k}`) : '<div class="bslot"></div>';
+  const potTotal = t.pot + t.seats.reduce((a, s) => a + (s ? s.bet : 0), 0);
+  const pot = t.pot > 0 ? `<div id="pot"><i class="chip"></i>Pot ${fmt(potTotal)}</div>` : '<div id="pot" style="visibility:hidden">Pot</div>';
+  const msg = t.result && t.phase !== 'hand' ? esc(t.result.msg) : '';
+  html += `<div id="center" style="top:${L.cy}px">${pot}<div id="board">${board}</div><div id="msg">${msg}</div></div>`;
+  $('tbl').innerHTML = html;
+  V.place();
+  for (const b of bubbles) placeBubble(b);
+}
+
+function renderTop() {
+  const t = S.table;
+  $('top').innerHTML = `
+    <button class="pill" data-a="leave">←</button>
+    <button class="pill" data-a="invite">📨 Invite</button>
+    <div class="mid">Table ${esc(S.code)}<br><b>${fmt(t.settings.sb)}/${fmt(t.settings.bb)}</b></div>
+    <button class="pill ${V.micOn ? '' : 'off'}" data-a="mic">${V.micOn ? '🎙️' : '🔇'}</button>
+    <button class="pill ${V.camOn ? '' : 'off'}" data-a="cam">${V.camOn ? '📷' : '🚫'}</button>
+    <button class="pill" data-a="chat">💬${chatUnread ? `<span class="badge">${chatUnread}</span>` : ''}</button>
+    <button class="pill" data-a="menu">☰</button>`;
+}
+
+function renderBar() {
+  if (!S) return;
+  const t = S.table, i = mySeat(), s = i >= 0 ? t.seats[i] : null;
+  const hint = s && s.hole.length && s.inHand ? E.handHint(s.hole, t.board) : '';
+  let left = hint ? `Your hand: <b>${esc(hint)}</b>` : '', right = '', body;
+  const myTurn = s && t.phase === 'hand' && t.toAct === i && !t.await;
+  if (myTurn && S.timer && S.timer.seat === i) right = `<span class="clock" id="myclock"></span>`;
+
+  if (S.ended) body = `<div class="btns"><button class="b-gold" data-a="results">See results</button></div>`;
+  else if (i < 0) body = `<div class="wait">${t.seats.some(x => !x) ? 'Tap an empty seat to join the game' : 'Table is full, you are watching'}</div>`;
+  else if (myTurn) {
+    const L = E.legal(t, i), toCall = t.curBet - s.bet;
+    const word = t.curBet === 0 ? 'Bet' : 'Raise';
+    if (raiseOpen && L.canRaise) {
+      if (!raiseTo || raiseTo < L.minTo || raiseTo > L.maxTo) raiseTo = L.minTo;
+      body = `<div class="rp">
+        <div class="presets">
+          <button data-a="preset" data-v="min">Min</button><button data-a="preset" data-v="0.5">½ Pot</button>
+          <button data-a="preset" data-v="1">Pot</button><button data-a="preset" data-v="all">All-in</button>
+        </div>
+        <div class="rrow">${L.maxTo > L.minTo ? `<div class="slrow"><input type="range" id="rs" min="${L.minTo}" max="${L.maxTo}" step="${t.settings.sb}" value="${raiseTo}"><b id="rv">${fmt(raiseTo)}</b></div>` : ''}
+          <div class="btns"><button class="b-back" data-a="raiseback">Back</button><button class="b-raise" data-a="raisego" id="rgo" ${pendingAct ? 'disabled' : ''}>${raiseLabel(word, L)}</button></div>
+        </div></div>`;
+    } else {
+      const callLbl = toCall === 0 ? 'Check' : toCall >= s.stack ? `All-in ${fmt(s.stack)}` : `Call ${fmt(toCall)}`;
+      body = `<div class="btns">
+        <button class="b-fold" data-a="fold" ${pendingAct ? 'disabled' : ''}>Fold</button>
+        <button class="b-call" data-a="call" ${pendingAct ? 'disabled' : ''}>${callLbl}</button>
+        <button class="b-raise" data-a="raise" ${L.canRaise && !pendingAct ? '' : 'disabled'}>${word}</button></div>`;
+    }
+  } else {
+    let status = '', btn = '';
+    if (s.stack === 0 && !(t.phase === 'hand' && s.inHand && !s.folded)) btn = `<button class="b-gold" data-a="rebuy">Rebuy ${fmt(t.settings.stack)}</button>`;
+    else if (s.sitOut) btn = `<button class="b-go" data-a="back">I'm back</button>`;
+    else if (!S.started) {
+      const n = t.seats.filter(x => x && x.stack > 0 && !x.sitOut).length;
+      if (isHost()) btn = n >= 2 ? `<button class="b-go" data-a="start">Start game (${n} players)</button>` : '';
+      status = n < 2 ? 'Waiting for at least one more player. Tap 📨 Invite to send the link.' : 'Waiting for the host to start the game';
+    } else if (S.paused && t.phase !== 'hand') status = 'Game paused by the host';
+    else if (S.ending && t.phase === 'hand' && (!s.inHand || s.folded)) status = 'The host is ending the game after this hand';
+    else if (t.phase !== 'hand') {
+      status = t.seats.filter(x => x && x.stack > 0 && !x.sitOut).length < 2 ? 'Waiting for more players…' : 'Next hand starting…';
+      if (s.won > 0 && t.result && !t.result.hands && !s.show) btn = `<button class="b-call" data-a="show">Show my cards</button>`;
+    }
+    else if (!s.inHand) status = 'You will be dealt in next hand';
+    else if (s.folded) status = 'You folded';
+    else if (s.allIn) status = "You're all-in!";
+    else if (t.toAct >= 0) status = `${esc(t.seats[t.toAct].name)} is thinking…`;
+    else status = 'Dealing…';
+    if (t.phase === 'hand' && s.inHand && !s.folded && !s.allIn && !myTurn) right = `<button class="tg ${auto && autoHand === t.handNo ? 'on' : ''}" data-a="auto">${auto && autoHand === t.handNo ? '✓ ' : ''}Check/Fold</button>`;
+    body = btn ? `<div class="btns">${btn}</div>` : `<div class="wait">${status}</div>`;
+  }
+  $('bar').innerHTML = `<div class="info"><span>${left}</span>${right}</div><div class="body">${body}</div>`;
+  const rs = $('rs');
+  if (rs) rs.addEventListener('input', () => {
+    raiseTo = +rs.value;
+    $('rv').textContent = fmt(raiseTo);
+    $('rgo').textContent = raiseLabel(t.curBet === 0 ? 'Bet' : 'Raise', E.legal(t, i));
+  });
+}
+function raiseLabel(word, L) { return raiseTo >= L.maxTo ? `All-in ${fmt(L.maxTo)}` : `${word} ${word === 'Raise' ? 'to ' : ''}${fmt(raiseTo)}`; }
+function presetTo(v) {
+  const t = S.table, i = mySeat(), L = E.legal(t, i);
+  if (v === 'all') return L.maxTo;
+  if (v === 'min') return L.minTo;
+  const pot = t.pot + t.seats.reduce((a, s) => a + (s ? s.bet : 0), 0);
+  const to = t.curBet + Math.round((pot + (t.curBet - t.seats[i].bet)) * +v / t.settings.sb) * t.settings.sb;
+  return Math.max(L.minTo, Math.min(L.maxTo, to));
+}
+
+// the turn clock: a ring around the player's face, and seconds in my action bar
+let lastTick = -1;
+function tickClock() {
+  requestAnimationFrame(tickClock);
+  if (!S || !S.timer) return;
+  const left = S.timer.at - (Date.now() + offset), p = Math.max(0, Math.min(1, left / S.timer.total));
+  const face = $('face-' + S.timer.seat);
+  if (face) { face.style.setProperty('--p', p); face.classList.toggle('low', left < 5000); }
+  const clock = $('myclock');
+  if (clock) {
+    const secs = Math.max(0, Math.ceil(left / 1000));
+    clock.textContent = `⏱ ${secs}s`;
+    if (secs <= 5 && secs !== lastTick && secs > 0) sfx.tick();
+    lastTick = secs;
+  }
+}
+
+// ---------- chat, bubbles and reactions ----------
+const bubbles = [];
+function renderChat() {
+  $('chatlog').innerHTML = chatLog.map(m => `<div><b>${esc(m.name)}:</b> ${esc(m.text)}</div>`).join('');
+  $('chatlog').scrollTop = 1e9;
+}
+function onChatMsg(m) {
+  if (!$('chat').classList.contains('on') && m.id !== me) { chatUnread++; renderTop(); }
+  const b = { id: m.id, text: m.text, until: Date.now() + 4500 };
+  bubbles.push(b); placeBubble(b);
+  setTimeout(() => { bubbles.splice(bubbles.indexOf(b), 1); if (b.el) b.el.remove(); }, 4500);
+}
+function seatPoint(id) {
+  const i = S.table.seats.findIndex(s => s && s.id === id);
+  const el = i >= 0 && $('face-' + i);
+  if (!el) return null;
+  const r = el.getBoundingClientRect(), tb = $('tbl').getBoundingClientRect();
+  return { x: r.left + r.width / 2 - tb.left, y: r.top - tb.top };
+}
+function placeBubble(b) {
+  const pt = seatPoint(b.id);
+  if (!pt) return;
+  b.el = document.createElement('div');
+  b.el.className = 'bubble';
+  b.el.textContent = b.text;
+  b.el.style.left = pt.x + 'px'; b.el.style.top = pt.y + 'px';
+  $('tbl').appendChild(b.el);
+}
+function flyReaction(m) {
+  const pt = seatPoint(m.to || m.from);
+  if (!pt) return;
+  const el = document.createElement('div');
+  el.className = 'fly'; el.textContent = m.emoji;
+  el.style.left = pt.x + 'px'; el.style.top = (pt.y + 30) + 'px';
+  $('tbl').appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+
+// ---------- modals ----------
+function modal(html) { $('modal').innerHTML = `<div class="panel">${html}</div>`; $('modal').style.display = 'flex'; }
+function closeModal() { $('modal').style.display = 'none'; $('modal').innerHTML = ''; }
+
+function menuModal() {
+  const t = S.table, host = isHost(), i = mySeat();
+  const blindOpts = BLINDS.map(([s, b]) => `<option value="${b}" ${b === (S.nextSettings || t.settings).bb ? 'selected' : ''}>${fmt(s)} / ${fmt(b)}</option>`).join('');
+  const ts = (S.nextSettings || t.settings).turnSecs;
+  modal(`<h2>Table ${esc(S.code)}</h2>
+    <button class="pb ok" data-a="invite">📨 Invite friends</button>
+    <button class="pb" data-a="standings">🏆 Standings</button>
+    ${i >= 0 ? `<button class="pb" data-a="sitout-toggle">${t.seats[i].sitOut ? "I'm back" : 'Sit out next hand'}</button><button class="pb" data-a="stand">Leave my seat (watch)</button>` : ''}
+    <button class="pb" data-a="sfx">${muted ? '🔈 Turn game sounds on' : '🔇 Turn game sounds off'}</button>
+    ${host ? `<hr style="margin:16px 0;border:0;border-top:1px solid #eee">
+      <h2 style="font-size:18px">Host controls 👑</h2>
+      ${!S.started ? '' : `<button class="pb" data-a="pause">${S.paused ? '▶️ Resume game' : '⏸ Pause after this hand'}</button>`}
+      <div class="row2"><div><label>Blinds</label><select id="hblinds">${blindOpts}</select></div>
+      <div><label>Time to act</label><select id="htime">${[15, 25, 40, 60].map(x => `<option value="${x}" ${x === ts ? 'selected' : ''}>${x}s</option>`).join('')}</select></div></div>
+      <button class="pb go" data-a="apply-settings">Apply from next hand</button>
+      <label>Players</label>
+      <div class="plist">${S.players.filter(p => p.id !== me && (p.online || t.seats.some(s => s && s.id === p.id))).map(p => `<div><span>${esc(p.av)} ${esc(p.name)}${p.online ? '' : ' 💤'}</span><button data-a="kick" data-v="${esc(p.id)}">Remove</button></div>`).join('') || '<div>No one else yet</div>'}</div>
+      <button class="pb bad" data-a="end">End game & show results</button>` : ''}
+    <button class="pb" data-a="close">Close</button>`);
+}
+
+function standingsHTML() {
+  return `<div class="plist">${S.standings.map((r, k) => `<div><span>${k === 0 && r.net > 0 ? '🥇 ' : ''}${esc(r.name)}<br><small style="color:#999">bought in ${fmt(r.bought)}</small></span><span class="${r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : ''}">${r.net > 0 ? '+' : ''}${r.net.toLocaleString('en-US')}</span></div>`).join('')}</div>`;
+}
+let resultsShown = false;
+function showResults(force) {
+  if (resultsShown && !force) return;
+  resultsShown = true;
+  modal(`<h2>🏆 Final results</h2>${standingsHTML()}<button class="pb ok" data-a="gohome">Start a new table</button><button class="pb" data-a="close">Look at the table</button>`);
+}
+
+function faceModal(id) {
+  const p = player(id), mine = id === me;
+  modal(`<h2>${esc(p ? p.name : '')}</h2>
+    <div class="bigvid" id="bigvid"><div style="font-size:90px;display:flex;align-items:center;justify-content:center;height:100%">${esc(p ? p.av : '')}</div></div>
+    ${mine ? '' : `<p>Send a reaction</p><div class="reacts">${REACTIONS.map(r => `<button data-a="react" data-v="${r}" data-to="${esc(id)}">${r}</button>`).join('')}</div>`}
+    <button class="pb" data-a="close">Close</button>`);
+  const st = mine ? V.local : V.streams.get(id);
+  if (st && st.getVideoTracks().length && (mine ? V.camOn : p && p.cam)) {
+    const v = document.createElement('video');
+    v.autoplay = true; v.playsInline = true; v.muted = true; v.srcObject = st;
+    if (mine) v.className = 'mirror';
+    $('bigvid').innerHTML = ''; $('bigvid').appendChild(v); v.play().catch(() => {});
+  }
+}
+
+async function invite() {
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('t', CODE);
+  if (params.get('api')) url.searchParams.set('api', API);
+  const text = `Join my poker table! 🃏 Code ${CODE}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Poker Night Live', text, url: url.toString() }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url.toString()); toast('Invite link copied: send it to your friends'); }
+  catch (e) { modal(`<h2>Invite friends</h2><p>Send them this link:</p><input type="text" readonly value="${esc(url)}" onclick="this.select()"><button class="pb" data-a="close">Done</button>`); }
+}
+
+function sendMedia() { send({ t: 'media', cam: V.camOn, mic: V.micOn }); }
+
+// ---------- video & voice ----------
+// Peer-to-peer by default: every phone sends a small video to every other phone, with the
+// table server passing the connection setup messages. If the server hands out a LiveKit token,
+// the LiveKit service relays the video instead, which copes better with mobile networks.
+const V = {
+  local: null, camOn: false, micOn: false, pcs: new Map(), streams: new Map(), videos: new Map(), lk: null, lkFailed: false, sess: rid(8),
+
+  async startLocal() {
+    try {
+      this.local = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 320 }, frameRate: { ideal: 15, max: 20 } },
+      });
+    } catch (e) { this.local = null; }
+    return this.local;
+  },
+
+  // one <video> element per person, moved into their seat after every redraw
+  videoEl(id) {
+    let v = this.videos.get(id);
+    if (!v) {
+      v = document.createElement('video');
+      v.autoplay = true; v.playsInline = true; v.muted = true;
+      if (id === me) v.className = 'mirror';
+      this.videos.set(id, v);
+    }
+    const st = id === me ? this.local : this.streams.get(id);
+    if (v.srcObject !== st) v.srcObject = st || null;
+    return v;
+  },
+  audioEl(id) {
+    let a = document.getElementById('aud-' + id);
+    const st = this.streams.get(id);
+    if (!st) { if (a) a.remove(); return; }
+    if (!a) { a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; $('audios').appendChild(a); }
+    if (a.srcObject !== st) { a.srcObject = st; a.play().catch(() => {}); }
+  },
+  place() {
+    for (const slot of document.querySelectorAll('.slot[data-vid]')) {
+      const id = slot.dataset.vid, mine = id === me, p = player(id);
+      const st = mine ? this.local : this.streams.get(id);
+      const camOn = mine ? this.camOn : p && p.online && p.cam;
+      // keep the avatar until real frames arrive
+      if (st && camOn && st.getVideoTracks().some(tr => tr.readyState === 'live' && (mine || !tr.muted))) {
+        const v = this.videoEl(id);
+        slot.appendChild(v);
+        slot.classList.add('on');
+        if (v.paused) v.play().catch(() => {});
+      }
+    }
+  },
+
+  // For each pair of phones the one with the smaller id always makes the offer, so offers never collide.
+  // Every connection carries one audio and one video slot; turning a camera on later just swaps the track in.
+  syncPeers() {
+    if (this.lk || !S) return;
+    const online = new Set(S.players.filter(p => p.online && p.id !== me).map(p => p.id));
+    for (const id of [...this.pcs.keys()]) if (!online.has(id)) this.closePeer(id);
+    const now = Date.now();
+    for (const id of online) {
+      if (this.pcs.has(id)) continue;
+      if (me < id) this.makePeer(id, true);
+      else if (!this.asked[id] || now - this.asked[id] > 4000) { this.asked[id] = now; this.signal(id, { hi: true }); } // ask them to call us
+    }
+  },
+  asked: {},
+  makePeer(id, offerer, cid) {
+    const pc = new RTCPeerConnection({ iceServers: ICE });
+    // cid names this one connection, so messages meant for an older one are ignored
+    const peer = { pc, offerer, cid: cid || rid(6), remoteSess: null, queue: Promise.resolve() };
+    this.pcs.set(id, peer);
+    pc.ontrack = ({ track }) => {
+      let st = this.streams.get(id);
+      if (!st) { st = new MediaStream(); this.streams.set(id, st); }
+      if (!st.getTracks().includes(track)) st.addTrack(track);
+      track.onunmute = track.onmute = () => { if (S) render(); };
+      this.audioEl(id);
+      const v = this.videos.get(id); if (v) v.srcObject = st;
+      if (S) render();
+    };
+    pc.onicecandidate = ({ candidate }) => { if (candidate) this.signal(id, { candidate, cid: peer.cid }); };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') { if (offerer) pc.restartIce(); }
+    };
+    if (offerer) {
+      for (const kind of ['audio', 'video']) pc.addTransceiver(this.track(kind) || kind, { direction: 'sendrecv', streams: this.local ? [this.local] : [] });
+      pc.onnegotiationneeded = async () => {
+        try { await pc.setLocalDescription(); this.signal(id, { description: pc.localDescription, cid: peer.cid }); } catch (e) { console.warn('offer', e); }
+      };
+    }
+    return peer;
+  },
+  track(kind) { return this.local ? (kind === 'audio' ? this.local.getAudioTracks() : this.local.getVideoTracks())[0] || null : null; },
+  closePeer(id) {
+    const peer = this.pcs.get(id);
+    if (peer) try { peer.pc.close(); } catch (e) {}
+    this.pcs.delete(id); this.streams.delete(id);
+    const a = document.getElementById('aud-' + id); if (a) a.remove();
+    const v = this.videos.get(id); if (v) { v.srcObject = null; this.videos.delete(id); }
+  },
+  signal(to, data) { send({ t: 'rtc', to, data: { ...data, sess: this.sess } }); },
+  onSignal(from, data) {
+    if (this.lk || !data) return;
+    let peer = this.pcs.get(from);
+    if (data.hi) {
+      // they want us to call them; skip it if we're already connected to that same page
+      if (me > from || (peer && peer.remoteSess === data.sess)) return;
+      if (peer) this.closePeer(from);
+      this.makePeer(from, true);
+      return;
+    }
+    const offer = data.description && data.description.type === 'offer';
+    if (offer && (!peer || peer.cid !== data.cid)) {      // a new call: start a fresh connection for it
+      if (peer) this.closePeer(from);
+      peer = this.makePeer(from, false, data.cid);
+    }
+    if (!peer || peer.cid !== data.cid) return;           // for a connection that no longer exists
+    // handle one peer's messages strictly in order, or candidates can arrive before their offer
+    peer.queue = peer.queue.then(() => this.handleSignal(from, peer, data));
+  },
+  async handleSignal(from, peer, data) {
+    if (this.pcs.get(from) !== peer) return;
+    const pc = peer.pc;
+    peer.remoteSess = data.sess;
+    try {
+      if (data.description && data.description.type === 'offer') {
+        await pc.setRemoteDescription(data.description);
+        for (const tr of pc.getTransceivers()) {
+          const kind = tr.receiver.track.kind;
+          tr.direction = 'sendrecv';
+          await tr.sender.replaceTrack(this.track(kind));
+          if (this.local) tr.sender.setStreams && tr.sender.setStreams(this.local);
+        }
+        await pc.setLocalDescription();
+        this.signal(from, { description: pc.localDescription, cid: peer.cid });
+      } else if (data.description) {
+        if (pc.signalingState === 'have-local-offer') await pc.setRemoteDescription(data.description);
+      } else if (data.candidate) {
+        await pc.addIceCandidate(data.candidate).catch(() => {});
+      }
+    } catch (e) { console.warn('rtc', e); }
+  },
+
+  // turning the camera or mic on after joining without video
+  async ensureLocal() {
+    if (this.local) return true;
+    if (!await this.startLocal()) { toast("Couldn't access your camera or mic"); return false; }
+    this.camOn = false; this.micOn = false;
+    for (const tr of this.local.getTracks()) tr.enabled = false;
+    if (this.lk) { for (const tr of this.local.getTracks()) await this.lk.localParticipant.publishTrack(tr).catch(() => {}); }
+    else for (const [, peer] of this.pcs) for (const tr of peer.pc.getTransceivers()) {
+      const t = this.track(tr.receiver.track.kind);
+      if (t) await tr.sender.replaceTrack(t).catch(() => {});
+    }
+    return true;
+  },
+  async toggle(kind) {
+    if (!await this.ensureLocal()) return;
+    const on = kind === 'cam' ? !this.camOn : !this.micOn;
+    for (const tr of kind === 'cam' ? this.local.getVideoTracks() : this.local.getAudioTracks()) tr.enabled = on;
+    if (kind === 'cam') this.camOn = on; else this.micOn = on;
+    sendMedia();
+    render();
+  },
+
+  async startLiveKit(info) {
+    try {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js';
+        s.onload = res; s.onerror = rej; document.head.appendChild(s);
+      });
+      const LK = window.LivekitClient;
+      const room = new LK.Room({ adaptiveStream: true, dynacast: true });
+      const add = (track, part) => {
+        let st = this.streams.get(part.identity);
+        if (!st) { st = new MediaStream(); this.streams.set(part.identity, st); }
+        if (!st.getTracks().includes(track.mediaStreamTrack)) st.addTrack(track.mediaStreamTrack);
+        this.audioEl(part.identity);
+        const v = this.videos.get(part.identity); if (v) v.srcObject = st;
+        if (S) render();
+      };
+      room.on(LK.RoomEvent.TrackSubscribed, (track, pub, part) => add(track, part));
+      room.on(LK.RoomEvent.TrackUnsubscribed, (track, pub, part) => { const st = this.streams.get(part.identity); if (st) st.removeTrack(track.mediaStreamTrack); });
+      room.on(LK.RoomEvent.ParticipantDisconnected, part => this.closePeer(part.identity));
+      await room.connect(info.url, info.token);
+      for (const id of [...this.pcs.keys()]) this.closePeer(id); // LiveKit takes over from peer-to-peer
+      this.lk = room;
+      if (this.local) for (const tr of this.local.getTracks()) await room.localParticipant.publishTrack(tr);
+    } catch (e) {
+      console.warn('LiveKit unavailable, using peer-to-peer video', e);
+      this.lk = null; this.lkFailed = true; this.syncPeers();
+    }
+  },
+};
+
+// ---------- input ----------
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-a]');
+  if (!el) return;
+  unlockAudio();
+  const a = el.dataset.a, v = el.dataset.v;
+  switch (a) {
+    case 'av':
+      profile.av = v; store.set('pl-av', v);
+      for (const b of el.parentElement.children) b.classList.toggle('sel', b === el);
+      if ($('pv') && !$('pv').querySelector('video')) $('pv').textContent = v;
+      break;
+    case 'create': createTable(); break;
+    case 'joincode': {
+      const code = ($('jcode').value || '').trim().toUpperCase();
+      if (/^[A-Z0-9]{5}$/.test(code)) goTable(code); else toast('Codes are 5 letters/numbers');
+      break;
+    }
+    case 'join-video': el.disabled = true; await joinTable(true); break;
+    case 'join-novideo': joinTable(false); break;
+
+    case 'fold': act('fold'); break;
+    case 'call': act('call'); break;
+    case 'raise': raiseOpen = true; raiseTo = presetTo('min'); renderBar(); render(); break;
+    case 'raiseback': raiseOpen = false; renderBar(); render(); break;
+    case 'preset': raiseTo = presetTo(v); render(); break;
+    case 'raisego': act('raise', raiseTo); break;
+    case 'auto': auto = !(auto && autoHand === S.table.handNo); autoHand = S.table.handNo; renderBar(); break;
+    case 'sit': send({ t: 'sit', seat: +v }); break;
+    case 'rebuy': send({ t: 'rebuy' }); break;
+    case 'back': send({ t: 'sitout', on: false }); break;
+    case 'show': send({ t: 'show' }); break;
+    case 'start': send({ t: 'start' }); break;
+
+    case 'mic': V.toggle('mic'); break;
+    case 'cam': V.toggle('cam'); break;
+    case 'invite': closeModal(); invite(); break;
+    case 'chat': $('chat').classList.add('on'); chatUnread = 0; renderTop(); setTimeout(() => $('chatinput').focus(), 50); break;
+    case 'chat-close': $('chat').classList.remove('on'); break;
+    case 'menu': menuModal(); break;
+    case 'face': faceModal(v); break;
+    case 'react': send({ t: 'react', emoji: v, to: el.dataset.to }); closeModal(); break;
+    case 'close': closeModal(); break;
+    case 'standings': modal(`<h2>🏆 Standings</h2>${standingsHTML()}<button class="pb" data-a="close">Close</button>`); break;
+    case 'results': showResults(true); break;
+    case 'sitout-toggle': { const s = S.table.seats[mySeat()]; send({ t: 'sitout', on: !s.sitOut }); closeModal(); break; }
+    case 'stand': send({ t: 'stand' }); store.set('pl-autosit-' + CODE, false); closeModal(); break;
+    case 'sfx': muted = !muted; store.set('pl-sfx-off', muted); closeModal(); break;
+    case 'pause': send({ t: 'pause', on: !S.paused }); closeModal(); break;
+    case 'apply-settings': send({ t: 'settings', bb: +$('hblinds').value, turnSecs: +$('htime').value, stack: +$('hblinds').value * 100 }); toast('New settings start from the next hand'); closeModal(); break;
+    case 'kick': if (confirm('Remove this player from the table?')) { send({ t: 'kick', id: v }); closeModal(); } break;
+    case 'end': if (confirm('End the game for everyone and show the results?')) { send({ t: 'end' }); closeModal(); } break;
+    case 'leave': {
+      const i = mySeat(), s = i >= 0 && S.table.seats[i];
+      if (s && S.table.phase === 'hand' && s.inHand && !s.folded && !confirm('Leave the table? Your current hand will be folded.')) break;
+      if (s) send({ t: 'stand' });
+      fatal = true; setTimeout(() => { try { ws.close(); } catch (e) {} location.href = location.pathname + (params.get('api') ? '?api=' + encodeURIComponent(API) : ''); }, 150);
+      break;
+    }
+    case 'gohome': location.href = location.pathname + (params.get('api') ? '?api=' + encodeURIComponent(API) : ''); break;
+  }
+});
+$('chatform').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('chatinput').value.trim();
+  if (text) send({ t: 'chat', text });
+  $('chatinput').value = '';
+});
+addEventListener('resize', () => { if (S) render(); });
+addEventListener('popstate', () => location.reload());
+
+if (params.has('debug')) window.__pl = { V, state: () => S, me: () => me };
+
+// ---------- start ----------
+const code = (params.get('t') || '').toUpperCase();
+if (/^[A-Z0-9]{5}$/.test(code)) renderJoin(code);
+else { renderHome(); show('home'); }
+// camera preview on the join screen once the browser allows it without a prompt
+if (navigator.permissions && $('pv')) navigator.permissions.query({ name: 'camera' }).then(async r => {
+  if (r.state !== 'granted' || !$('pv')) return;
+  try {
+    preview = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const vid = document.createElement('video'); vid.autoplay = true; vid.muted = true; vid.playsInline = true; vid.srcObject = preview;
+    $('pv').innerHTML = ''; $('pv').appendChild(vid);
+  } catch (e) {}
+}).catch(() => {});
+window.addEventListener('pagehide', () => { if (preview) preview.getTracks().forEach(t => t.stop()); });
+</script>
+</body>
+</html>
