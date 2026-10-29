@@ -42,6 +42,14 @@ window.GAMES = [
     emoji: '🏓',
   },
   {
+    slug: '8-ball-pool',
+    title: '8 Ball Pool',
+    description: 'Solids or stripes against the computer. Line up shots with the guideline, then pot the 8 to win.',
+    tags: ['Sports', '1 player'],
+    color: ['#1f9a57', '#0d4a2a'],
+    emoji: '🎱',
+  },
+  {
     slug: 'flappy-wings',
     title: 'Flappy Wings',
     description: 'Tap to flap and squeeze through the gaps between pipes. One bump and it\'s over, so how far can you get?',

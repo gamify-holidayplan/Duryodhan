@@ -25,5 +25,6 @@ games/<slug>/index.html one folder per game
 - **Crossy Roads** (`/games/crossy-roads/`): hop across roads, rivers and train tracks. 5 characters: chicken, frog, penguin, robot, fox.
 - **Stick Cricket** (`/games/stick-cricket/`): chase a target in 3 overs with 3 wickets. Tap to hit, swipe up to loft, swipe sideways to aim.
 - **Neon Ping Pong** (`/games/ping-pong/`): table tennis vs the computer with spin, smashes and sound. Easy / Normal / Pro.
+- **8 Ball Pool** (`/games/8-ball-pool/`): solids vs stripes against the computer, with fouls, ball in hand and an aiming guideline.
 - **Flappy Wings** (`/games/flappy-wings/`): tap to flap through the gaps between pipes. Gaps get tighter as your score climbs.
 - **Hold'em Poker** (`/games/texas-holdem/`): no-limit Texas Hold'em vs 5 bots. 4 stake levels, buy-ins, blinds, side pots, saved bankroll with a daily bonus.
