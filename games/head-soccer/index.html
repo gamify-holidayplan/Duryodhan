@@ -181,7 +181,7 @@
   // ---------- AI ----------
   const ai = { left: false, right: false, jump: false, kick: false, think: 0 };
   function updateAI(dt) {
-    ai.think -= dt; if (ai.think > 0) return; ai.think = 0.09; // reaction delay
+    ai.think -= dt; if (ai.think > 0) return; ai.think = 0.00; // reaction delay
     // predict ball x a little ahead
     const px = ball.x + ball.vx * 0.15;
     const defending = ball.x > W / 2 || ball.vx > 150;
