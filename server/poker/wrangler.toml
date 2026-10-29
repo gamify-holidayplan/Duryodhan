@@ -15,3 +15,4 @@ new_sqlite_classes = ["PokerRoom"]
 
 # Optional, for LiveKit video instead of peer-to-peer. Add these as secrets in the Cloudflare
 # dashboard (Worker > Settings > Variables and Secrets): LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+# For video between phones on mobile data, add a Cloudflare TURN key as secrets: TURN_KEY_ID, TURN_KEY_API_TOKEN

@@ -5,132 +5,188 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0b2416">
+<meta name="theme-color" content="#1a0a12">
 <title>Poker Night Live</title>
 <style>
-  :root { --gold: #ffca28; }
+  :root { --gold: #ffc940; --gold2: #d99a1e; --felt: #a3161f; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; color: #fff;
-               background: radial-gradient(900px 600px at 50% 30%, #12402a, #06150d); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: radial-gradient(700px 380px at 20% 8%, rgba(255,170,60,.16), transparent 70%), radial-gradient(700px 380px at 80% 8%, rgba(160,80,255,.14), transparent 70%),
+                radial-gradient(1200px 800px at 50% 40%, #3a1424, #12060c 70%), #12060c; }
   button, input, select { font-family: inherit; }
   button { cursor: pointer; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
   .screen.on { display: flex; }
-  .pill { padding: 7px 12px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; border: 0; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-  .pill.off { background: #b71c1c; }
+  .pill { padding: 7px 12px; border-radius: 20px; background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.12); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .pill.off { background: #8e1a1a; }
   .badge { background: #e53935; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 3px; }
 
   /* ---------- home & join ---------- */
   .page { overflow-y: auto; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
   .wrap { width: min(480px, 100%); }
   .wrap h1 { font-size: 30px; margin: 18px 0 4px; }
-  .sub { color: #a5c9b3; margin: 0 0 18px; font-size: 15px; line-height: 1.45; }
+  .sub { color: #d8b8c4; margin: 0 0 18px; font-size: 15px; line-height: 1.45; }
   .card-box { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 16px; margin-bottom: 14px; }
   .card-box h2 { margin: 0 0 12px; font-size: 18px; }
-  label { display: block; font-size: 13px; color: #a5c9b3; margin: 10px 0 5px; }
+  label { display: block; font-size: 13px; color: #d8b8c4; margin: 10px 0 5px; }
   input[type=text], select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.35); color: #fff; font-size: 16px; }
   .avs { display: flex; flex-wrap: wrap; gap: 6px; }
   .avs button { font-size: 24px; width: 44px; height: 44px; border-radius: 12px; border: 2px solid transparent; background: rgba(0,0,0,.3); }
-  .avs button.sel { border-color: var(--gold); background: rgba(255,202,40,.15); }
+  .avs button.sel { border-color: var(--gold); background: rgba(255,201,64,.15); }
   .row2 { display: flex; gap: 10px; } .row2 > div { flex: 1; }
-  .big-btn { display: block; width: 100%; margin-top: 14px; padding: 15px; border-radius: 30px; font-size: 17px; font-weight: 800; border: 0; background: var(--gold); color: #222; }
-  .big-btn.alt { background: rgba(255,255,255,.12); color: #fff; }
+  .big-btn { display: block; width: 100%; margin-top: 14px; padding: 15px; border-radius: 30px; font-size: 17px; font-weight: 800; border: 0; color: #2a1600;
+             background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold2)); box-shadow: 0 4px 0 #8a5a00, 0 8px 18px rgba(0,0,0,.4); }
+  .big-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a5a00; }
+  .big-btn.alt { background: rgba(255,255,255,.12); color: #fff; box-shadow: none; }
   .big-btn:disabled { opacity: .5; }
   .preview { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; margin: 6px auto 4px; background: #000; display: flex; align-items: center; justify-content: center; font-size: 54px; border: 3px solid var(--gold); }
   .preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
   .err { color: #ff8a80; font-size: 14px; min-height: 18px; margin-top: 8px; text-align: center; }
-  .small { color: #8fb39d; font-size: 13px; line-height: 1.5; }
+  .small { color: #b99aa6; font-size: 13px; line-height: 1.5; }
 
   /* ---------- table ---------- */
-  #top { display: flex; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 4px calc(10px + env(safe-area-inset-left)); }
-  #top .mid { flex: 1; text-align: center; font-size: 12px; color: #a5c9b3; line-height: 1.2; min-width: 0; }
+  #top { display: flex; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 4px calc(10px + env(safe-area-inset-left)); position: relative; z-index: 5; }
+  #top .mid { flex: 1; text-align: center; font-size: 12px; color: #d8b8c4; line-height: 1.2; min-width: 0; }
   #top .mid b { color: var(--gold); font-size: 14px; }
   #top .pill { padding: 7px 10px; }
-  #banner { display: none; background: #e65100; text-align: center; font-size: 13px; font-weight: 700; padding: 4px; }
-  #tbl { flex: 1; position: relative; min-height: 0; width: 100%; max-width: 980px; margin: 0 auto; }
+  #banner { display: none; background: #e65100; text-align: center; font-size: 13px; font-weight: 700; padding: 5px; position: relative; z-index: 5; }
+  #banner button { margin-left: 8px; border: 0; border-radius: 10px; padding: 3px 10px; font-weight: 800; }
+  #stage { flex: 1; position: relative; min-height: 0; width: 100%; max-width: 1000px; margin: 0 auto; }
+  #tbl, #fx { position: absolute; inset: 0; }
+  #fx { pointer-events: none; z-index: 8; overflow: hidden; }
   .felt { position: absolute; left: 7%; right: 7%; top: 9%; bottom: 12%; border-radius: 999px;
-          background: radial-gradient(ellipse at 50% 40%, #2fa564, #157540 55%, #0c4a28);
-          border: 10px solid #5a3415; box-shadow: inset 0 0 0 3px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.55), 0 12px 30px rgba(0,0,0,.6); }
+          background: radial-gradient(ellipse at 50% 38%, #d4323a, var(--felt) 45%, #6a0910 85%);
+          border: 12px solid #2a120c;
+          box-shadow: 0 0 0 3px #b8862b, 0 0 0 6px #3a1a10, 0 0 28px 6px rgba(255,140,40,.35), inset 0 0 0 2px rgba(255,220,150,.35), inset 0 0 60px rgba(0,0,0,.55), 0 18px 40px rgba(0,0,0,.7); }
+  .felt::before { content: ""; position: absolute; inset: 14px; border-radius: 999px; border: 2px solid rgba(255,220,150,.22); }
+  .felt::after { content: "♠ ♥ POKER NIGHT ♦ ♣"; position: absolute; left: 50%; top: 74%; transform: translate(-50%, -50%); font-weight: 900; letter-spacing: 4px; color: rgba(255,255,255,.08); font-size: 15px; white-space: nowrap; }
 
-  .seat { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: 88px; transition: opacity .3s; }
-  .seat.out { opacity: .5; }
-  .plate { position: relative; z-index: 1; width: 88px; background: rgba(8,12,18,.88); border: 2px solid rgba(255,255,255,.15); border-radius: 14px; padding: 4px 4px 3px; text-align: center; transition: box-shadow .2s, border-color .2s; }
-  .seat.turn .plate { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,202,40,.3), 0 0 18px rgba(255,202,40,.6); }
-  .seat.win .plate { border-color: #69f0ae; box-shadow: 0 0 20px #69f0ae; }
-  .seat.empty .plate { background: rgba(0,0,0,.3); border-style: dashed; }
-  .face { --p: 0; position: relative; width: 56px; height: 56px; margin: 0 auto 2px; border-radius: 50%; padding: 3px;
-          background: conic-gradient(var(--gold) calc(var(--p) * 360deg), rgba(255,255,255,.12) 0); cursor: pointer; }
-  .face.low { background: conic-gradient(#ff5252 calc(var(--p) * 360deg), rgba(255,255,255,.12) 0); }
-  .slot { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1c2630; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .seat { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: 92px; transition: opacity .3s, filter .3s; }
+  .seat.out { opacity: .55; filter: saturate(.4); }
+  .plate { position: relative; z-index: 1; width: 92px; text-align: center; }
+  .face { --p: 0; --c: #4caf50; position: relative; width: 62px; height: 62px; margin: 0 auto; border-radius: 50%; padding: 3px; cursor: pointer;
+          background: linear-gradient(145deg, #ffe08a, #b8862b); box-shadow: 0 4px 12px rgba(0,0,0,.6); }
+  .seat.turn .face { background: conic-gradient(var(--c) calc(var(--p) * 360deg), rgba(0,0,0,.6) 0); box-shadow: 0 0 0 2px rgba(255,255,255,.3), 0 0 22px var(--c); }
+  .seat.win .face { animation: winGlow 1s ease-in-out infinite alternate; }
+  @keyframes winGlow { from { box-shadow: 0 0 10px #ffd54f; } to { box-shadow: 0 0 34px 8px #ffd54f; } }
+  .slot { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #4a2a3a, #1c1016); display: flex; align-items: center; justify-content: center; font-size: 30px; }
   .slot video { width: 100%; height: 100%; object-fit: cover; }
   .slot.on .emo { display: none; }
   video.mirror { transform: scaleX(-1); }
-  .mic-off { position: absolute; right: -4px; bottom: -2px; font-size: 12px; background: #b71c1c; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
-  .offline { position: absolute; left: -4px; bottom: -2px; font-size: 11px; background: #455a64; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
-  .nm { font-size: 11px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .st { font-size: 13px; font-weight: 800; color: var(--gold); }
-  .hn { font-size: 9.5px; color: #b9f6ca; font-weight: 700; line-height: 1.2; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ico { position: absolute; bottom: -2px; font-size: 11px; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.4); }
+  .mic-off { right: -4px; background: #b71c1c; }
+  .offline { left: -4px; background: #455a64; }
+  .weak { left: -4px; background: #e65100; }
+  .info-plate { margin-top: -6px; position: relative; z-index: 2; background: linear-gradient(180deg, rgba(20,8,14,.95), rgba(40,14,24,.95)); border: 1px solid rgba(255,201,64,.45);
+                border-radius: 10px; padding: 2px 6px 3px; display: inline-block; min-width: 76px; max-width: 92px; box-shadow: 0 3px 8px rgba(0,0,0,.5); }
+  .nm { font-size: 11px; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { font-size: 13px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .st.bump { animation: bump .6s ease-out; }
+  @keyframes bump { 40% { transform: scale(1.35); color: #b9f6ca; } }
+  .hn { font-size: 9.5px; color: #b9f6ca; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seat.me .hn { display: none; }
-  .sitbtn { border: 0; border-radius: 10px; background: #2e7d32; color: #fff; font-weight: 800; padding: 8px 10px; margin: 18px 0; font-size: 13px; }
-  .tag { position: absolute; left: 50%; top: -11px; transform: translateX(-50%); font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px;
-         background: #455a64; white-space: nowrap; text-transform: uppercase; letter-spacing: .3px; z-index: 2; }
-  .tag.fold { background: #616161; } .tag.raise, .tag.bet { background: #e65100; } .tag.call, .tag.check { background: #1565c0; }
-  .tag.allin { background: #c62828; } .tag.win { background: #2e7d32; } .tag.sb, .tag.bb { background: #6a1b9a; } .tag.away { background: #37474f; }
-  .cards { display: flex; gap: 2px; margin-bottom: -10px; min-height: 10px; }
+  .sitbtn { border: 0; border-radius: 30px; padding: 10px 12px; font-weight: 800; font-size: 13px; color: #2a1600; background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold2)); box-shadow: 0 3px 0 #8a5a00; }
+  .empty-seat { width: 62px; height: 62px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.35); font-size: 11px; margin: 0 auto; }
+  .away { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 10px; font-weight: 800; background: #37474f; padding: 1px 7px; border-radius: 8px; }
+  .cards { display: flex; gap: 2px; margin-bottom: -14px; min-height: 12px; position: relative; z-index: 2; }
   .seat .cards { --w: min(7.5vw, 30px); }
-  .seat.me .cards { --w: min(15vw, 60px, 9vh); gap: 4px; margin-bottom: -6px; }
+  .seat .cards .card:nth-child(1) { transform: rotate(-7deg); } .seat .cards .card:nth-child(2) { transform: rotate(7deg) translateY(1px); }
+  .seat.me .cards { --w: min(15vw, 62px, 9.5vh); gap: 4px; margin-bottom: -8px; }
+  .seat.me .cards .card:nth-child(1) { transform: rotate(-6deg) translateY(2px); } .seat.me .cards .card:nth-child(2) { transform: rotate(6deg) translateY(2px); }
 
-  .card { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); background: #fff; color: #111;
+  .card { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); background: linear-gradient(180deg, #fff, #f1ece4); color: #111;
           display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; line-height: .95;
-          box-shadow: 0 2px 5px rgba(0,0,0,.45); transition: transform .2s, box-shadow .2s; flex: none; }
+          box-shadow: 0 2px 6px rgba(0,0,0,.5); flex: none; position: relative; }
   .card .r { font-size: calc(var(--w) * .44); letter-spacing: -1px; }
   .card .s { font-size: calc(var(--w) * .42); }
   .card.red { color: #d32f2f; }
-  .card.back { background: repeating-linear-gradient(45deg, #b71c1c 0 4px, #d84343 4px 8px); border: 2px solid #fff; }
-  .card.dim { filter: brightness(.5); }
-  .card.hl { box-shadow: 0 0 0 3px #69f0ae, 0 0 14px #69f0ae; transform: translateY(-5px); }
-  .card.deal { animation: deal .35s ease-out both; }
-  @keyframes deal { from { transform: translateY(-40px) scale(.5) rotate(-12deg); opacity: 0; } }
+  .card.back { background: radial-gradient(circle at 50% 50%, #e05050 0 18%, transparent 19%), repeating-linear-gradient(45deg, #8e0f18 0 4px, #b5222c 4px 8px); border: 2px solid #fff; }
+  .card.dim { filter: brightness(.45); }
+  .card.hl { box-shadow: 0 0 0 3px #ffd54f, 0 0 16px #ffd54f; transform: translateY(-6px) !important; z-index: 3; }
+  .card.deal { animation: dealFly .45s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes dealFly { from { transform: translate(var(--fx), var(--fy)) scale(.35) rotate(-40deg); opacity: .2; } }
+  .card.flip { animation: flip .5s ease-out both; }
+  @keyframes flip { 0% { transform: perspective(400px) rotateY(90deg) scale(.8); filter: brightness(.6); } 60% { transform: perspective(400px) rotateY(-12deg) scale(1.08); } 100% { transform: none; } }
 
   #center { position: absolute; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 8px; width: 80%; pointer-events: none; }
   #board { display: flex; gap: 4px; --w: min(11vw, 54px, 8.5vh); }
-  .bslot { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); border: 2px dashed rgba(255,255,255,.13); }
-  #pot { font-weight: 800; background: rgba(0,0,0,.4); padding: 4px 12px; border-radius: 14px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
-  #msg { max-width: 58vw; font-size: 13px; text-align: center; min-height: 17px; font-weight: 700; text-shadow: 0 1px 3px #000; color: #e8f5e9; }
-  .bet { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 800; background: rgba(0,0,0,.55); padding: 2px 8px 2px 3px; border-radius: 12px; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
-  .chip { width: 15px; height: 15px; border-radius: 50%; display: inline-block; flex: none;
-          background: radial-gradient(circle, #fff 0 22%, #e53935 23% 55%, #fff 56% 68%, #e53935 69%); box-shadow: 0 1px 2px rgba(0,0,0,.5); }
-  .dealer { position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #111; font-weight: 900; font-size: 12px;
-            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .bslot { width: var(--w); height: calc(var(--w) * 1.4); border-radius: calc(var(--w) * .13); border: 2px dashed rgba(255,230,180,.16); }
+  #pot { font-weight: 800; background: rgba(0,0,0,.55); padding: 4px 12px 4px 6px; border-radius: 16px; font-size: 14px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,201,64,.4); }
+  #msg { max-width: 62vw; font-size: 14px; text-align: center; min-height: 18px; font-weight: 800; }
+  #msg span { display: inline-block; background: linear-gradient(180deg, #ffe08a, var(--gold) 50%, var(--gold2)); color: #2a1600; padding: 5px 14px; border-radius: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  #msg span.pop { animation: pop .5s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
+  .bet { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 800; background: rgba(0,0,0,.6); padding: 2px 9px 2px 3px; border-radius: 13px; white-space: nowrap;
+         display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,.18); z-index: 3; }
+  .bet.in { animation: betIn .45s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes betIn { from { transform: translate(calc(-50% + var(--fx)), calc(-50% + var(--fy))) scale(.5); opacity: .3; } }
+  .bet .i { width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex: none; }
+  .bet.call .i, .bet.check .i { background: #2e7d32; } .bet.raise .i, .bet.bet .i { background: #ef6c00; } .bet.fold .i { background: #c62828; }
+  .bet.sb .i, .bet.bb .i { background: #6a1b9a; font-size: 8px; } .bet.allin .i { background: #d50000; }
+  .bet.fold { color: #ffcdd2; }
+  .bet.allin { border-color: #ff9100; box-shadow: 0 0 12px #ff6d00, 0 0 24px rgba(255,109,0,.5); animation: fire 0.9s ease-in-out infinite alternate; }
+  @keyframes fire { to { box-shadow: 0 0 18px #ffab00, 0 0 36px rgba(255,61,0,.7); } }
+  .chip { width: 16px; height: 16px; border-radius: 50%; display: inline-block; flex: none;
+          background: radial-gradient(circle, #fff 0 22%, #e53935 23% 55%, #fff 56% 68%, #e53935 69%); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .chip.g { background: radial-gradient(circle, #fff 0 22%, #2e7d32 23% 55%, #fff 56% 68%, #2e7d32 69%); }
+  .chip.b { background: radial-gradient(circle, #fff 0 22%, #1565c0 23% 55%, #fff 56% 68%, #1565c0 69%); }
+  .chip.k { background: radial-gradient(circle, #ffd54f 0 22%, #212121 23% 55%, #ffd54f 56% 68%, #212121 69%); }
+  .dealer { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #ddd); color: #111; font-weight: 900; font-size: 12px;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,.6); border: 2px solid #b8862b; transition: left .6s ease, top .6s ease; z-index: 3; }
   .bubble { position: absolute; transform: translate(-50%, -100%); background: #fff; color: #111; font-size: 12px; font-weight: 600; padding: 5px 9px; border-radius: 12px;
-            max-width: 150px; z-index: 6; box-shadow: 0 4px 10px rgba(0,0,0,.4); animation: pop .2s ease-out; pointer-events: none; }
-  .fly { position: absolute; font-size: 34px; z-index: 7; pointer-events: none; animation: fly 1.6s ease-out forwards; }
-  @keyframes fly { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 15% { opacity: 1; transform: translate(-50%, -80%) scale(1.3); } 100% { transform: translate(-50%, -190%) scale(1); opacity: 0; } }
-  @keyframes pop { from { transform: translate(-50%, -100%) scale(.6); opacity: 0; } }
+            max-width: 150px; z-index: 9; box-shadow: 0 4px 10px rgba(0,0,0,.4); animation: bpop .2s ease-out; pointer-events: none; }
+  @keyframes bpop { from { transform: translate(-50%, -100%) scale(.6); opacity: 0; } }
+
+  /* effects layer */
+  .fxchip { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+  .fxtext { position: absolute; transform: translate(-50%, -50%); font-weight: 900; font-size: 22px; color: #ffe082; text-shadow: 0 2px 0 #7a4b00, 0 0 14px rgba(255,200,60,.8); white-space: nowrap; animation: rise 1.8s ease-out forwards; }
+  .fxtext.big { font-size: 38px; color: #fff; text-shadow: 0 3px 0 #b71c1c, 0 0 24px #ff6d00; animation: slam 1.4s ease-out forwards; }
+  @keyframes rise { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -220%) scale(1); } }
+  @keyframes slam { 0% { opacity: 0; transform: translate(-50%, -50%) scale(3) rotate(-8deg); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-4deg); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1.1) rotate(-4deg); } }
+  .confetti { position: absolute; width: 8px; height: 12px; border-radius: 2px; }
+  .fly { position: absolute; font-size: 36px; z-index: 9; pointer-events: none; animation: fly 1.6s ease-out forwards; }
+  @keyframes fly { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0; } 15% { opacity: 1; transform: translate(-50%, -80%) scale(1.4); } 100% { transform: translate(-50%, -190%) scale(1); opacity: 0; } }
 
   /* ---------- action bar ---------- */
-  #bar { padding: 8px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left)); background: rgba(0,0,0,.55); border-top: 1px solid rgba(255,255,255,.08); }
-  #bar > * { max-width: 620px; margin-left: auto; margin-right: auto; }
-  .info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #cfd8dc; min-height: 28px; margin-bottom: 6px; gap: 8px; }
-  .info b { color: #fff; }
-  .tg { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #cfd8dc; border-radius: 14px; padding: 5px 10px; font-size: 12px; font-weight: 700; }
-  .tg.on { background: #1565c0; border-color: #1565c0; color: #fff; }
+  #bar { padding: 8px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+         background: linear-gradient(180deg, rgba(30,10,18,.9), rgba(12,4,8,.98)); border-top: 1px solid rgba(255,201,64,.25); position: relative; z-index: 5; }
+  #bar > * { max-width: 640px; margin-left: auto; margin-right: auto; }
+  .info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #d8c0c8; min-height: 28px; margin-bottom: 6px; gap: 8px; }
+  .strength { display: inline-flex; align-items: center; gap: 6px; }
+  .strength b { color: #fff; }
+  .meter { display: inline-flex; gap: 2px; }
+  .meter i { width: 5px; height: 12px; border-radius: 2px; background: rgba(255,255,255,.15); }
+  .meter i.on { background: linear-gradient(180deg, #ffe08a, #ffa000); }
   .btns { display: flex; gap: 8px; }
-  .btns button { flex: 1; padding: 0 4px; height: 50px; border-radius: 14px; border: 0; font-size: 16px; font-weight: 800; color: #fff; }
-  .b-fold { background: #c62828; } .b-call { background: #1565c0; } .b-raise { background: #ef6c00; } .b-back { background: #455a64; flex: .6 !important; }
-  .b-go { background: #2e7d32; } .b-gold { background: var(--gold); color: #222 !important; }
-  .wait { height: 50px; display: flex; align-items: center; justify-content: center; color: #90a4ae; font-size: 14px; font-weight: 600; border-radius: 14px; background: rgba(255,255,255,.04); text-align: center; padding: 0 8px; }
+  .btns button { flex: 1; padding: 0 4px; height: 52px; border-radius: 14px; border: 0; font-size: 16px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4);
+                 box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.3); transition: transform .08s; }
+  .btns button:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+  .btns.turn button { animation: slideUp .3s cubic-bezier(.2,1.4,.4,1) both; }
+  .btns.turn button:nth-child(2) { animation-delay: .05s; } .btns.turn button:nth-child(3) { animation-delay: .1s; }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } }
+  .b-fold { background: linear-gradient(180deg, #e53935, #a31515); } .b-call { background: linear-gradient(180deg, #43a047, #1b5e20); }
+  .b-raise { background: linear-gradient(180deg, #ffb300, #e65100); } .b-back { background: #455a64; flex: .6 !important; }
+  .b-go { background: linear-gradient(180deg, #43a047, #1b5e20); } .b-gold { background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold2)); color: #2a1600 !important; text-shadow: none !important; }
+  .btns button:disabled { opacity: .45; }
+  .pre button { background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.18); box-shadow: none; font-size: 14px; color: #ddd; height: 46px; }
+  .pre button.on { background: rgba(67,160,71,.3); border-color: #66bb6a; color: #fff; }
+  .pre button .box { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid currentColor; margin-right: 6px; vertical-align: -2px; }
+  .pre button.on .box { background: #66bb6a; border-color: #66bb6a; }
+  .wait { height: 52px; display: flex; align-items: center; justify-content: center; color: #b99aa6; font-size: 14px; font-weight: 600; border-radius: 14px; background: rgba(255,255,255,.04); text-align: center; padding: 0 8px; }
   .presets { display: flex; gap: 6px; margin-bottom: 8px; }
-  .presets button { flex: 1; padding: 9px 2px; border-radius: 10px; border: 0; background: #37474f; color: #fff; font-weight: 700; font-size: 13px; }
+  .presets button { flex: 1; padding: 9px 2px; border-radius: 10px; border: 0; background: #4a2a36; color: #fff; font-weight: 700; font-size: 13px; }
   .slrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .slrow b { min-width: 74px; text-align: right; color: var(--gold); font-size: 16px; }
-  input[type=range] { flex: 1; height: 32px; accent-color: #ef6c00; margin: 0; }
+  input[type=range] { flex: 1; height: 32px; accent-color: #ffa000; margin: 0; }
   .clock { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--gold); }
+  .clock.low { color: #ff5252; animation: blink .5s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .4; } }
 
   @media (orientation: landscape) and (max-height: 500px) {
     .seat.me { flex-direction: row; width: auto; gap: 6px; }
     .seat.me .cards { margin: 0; --w: min(10vh, 44px); }
-    .face { width: 44px; height: 44px; } .slot { font-size: 22px; }
+    .face { width: 48px; height: 48px; } .slot { font-size: 22px; }
+    .empty-seat { width: 48px; height: 48px; }
     #center { flex-direction: row; justify-content: center; gap: 10px; }
     #pot[style*=hidden] { display: none; }
     .hn, #msg { display: none; }
@@ -138,7 +194,7 @@
     #bar > * { margin: 0; max-width: none; }
     #bar .info { flex: 0 1 30%; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 0; }
     #bar .body { flex: 1; }
-    .btns button, .wait { height: 42px; }
+    .btns button, .wait { height: 42px; } .pre button { height: 40px; font-size: 13px; }
     .rp { display: flex; gap: 8px; align-items: center; }
     .rp .presets { margin: 0; flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
     .rp .presets button { padding: 3px 8px; font-size: 11px; }
@@ -149,13 +205,16 @@
 
   /* ---------- sheets & modals ---------- */
   #modal { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); padding: 16px; }
-  .panel { background: #fff; color: #222; border-radius: 20px; padding: 22px 20px; width: min(380px, 100%); max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .panel { background: #fff; color: #222; border-radius: 20px; padding: 22px 20px; width: min(380px, 100%); max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.4); animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
   .panel h2 { margin: 0 0 8px; font-size: 22px; text-align: center; }
   .panel p { color: #666; font-size: 14px; margin: 6px 0; line-height: 1.4; text-align: center; }
   .panel label { color: #666; }
   .panel select, .panel input[type=text] { background: #f3f3f3; color: #222; border-color: #ddd; }
   .panel .pb { display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 30px; font-size: 16px; font-weight: 700; border: 0; background: #eee; color: #333; }
-  .panel .pb.ok { background: var(--gold); color: #222; } .panel .pb.go { background: #2e7d32; color: #fff; } .panel .pb.bad { background: #c62828; color: #fff; }
+  .panel .pb.ok { background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold2)); color: #2a1600; } .panel .pb.go { background: #2e7d32; color: #fff; } .panel .pb.bad { background: #c62828; color: #fff; }
+  .panel.allin { background: linear-gradient(180deg, #3a0d14, #1a060a); color: #fff; border: 2px solid var(--gold); text-align: center; }
+  .panel.allin h2 { font-size: 30px; color: var(--gold); text-shadow: 0 0 18px rgba(255,140,0,.7); }
+  .panel.allin p { color: #f0d8de; }
   .plist { margin: 8px 0; }
   .plist div { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px; border-bottom: 1px solid #eee; font-size: 15px; gap: 8px; }
   .plist button { border: 0; border-radius: 10px; background: #ffebee; color: #c62828; font-weight: 700; padding: 6px 10px; }
@@ -165,7 +224,7 @@
   .reacts { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .reacts button { font-size: 28px; border: 0; background: #f3f3f3; border-radius: 12px; width: 50px; height: 50px; }
 
-  #chat { position: fixed; right: 0; top: 0; bottom: 0; width: min(340px, 100%); z-index: 15; background: #0e1a14; border-left: 1px solid rgba(255,255,255,.1);
+  #chat { position: fixed; right: 0; top: 0; bottom: 0; width: min(340px, 100%); z-index: 15; background: #1a0a12; border-left: 1px solid rgba(255,255,255,.1);
           display: none; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
   #chat.on { display: flex; }
   #chatlog { flex: 1; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; user-select: text; -webkit-user-select: text; }
@@ -183,8 +242,8 @@
 <div id="join" class="screen page"></div>
 <div id="game" class="screen">
   <div id="top"></div>
-  <div id="banner">Reconnecting…</div>
-  <div id="tbl"></div>
+  <div id="banner"></div>
+  <div id="stage"><div id="tbl"></div><div id="fx"></div></div>
   <div id="bar"></div>
 </div>
 <div id="chat">
@@ -194,7 +253,7 @@
 </div>
 <div id="modal"></div>
 <div id="toast"></div>
-<div id="audios" style="display:none"></div>
+<div id="audios" style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></div>
 
 <script type="module">
 import * as E from '/shared/poker-engine.js';
@@ -205,7 +264,7 @@ const API = params.get('api') || 'https://poker-live.dixshant4.workers.dev';
 const AVATARS = ['😎', '🦊', '🐼', '🐯', '🦁', '🐸', '🐵', '🐨', '🐻', '🦉', '🐙', '🦄', '🐲', '🐧', '🐱', '🐶', '👑', '🤠'];
 const BLINDS = [[5, 10], [10, 20], [25, 50], [50, 100], [100, 200], [250, 500], [500, 1000]];
 const REACTIONS = ['😂', '🔥', '😱', '👏', '🤡', '💸', '😭', '🙏'];
-const ICE = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+let ICE = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }]; // the server adds relay (TURN) servers when it has them
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -218,6 +277,7 @@ const rid = n => { const r = new Uint8Array(n); crypto.getRandomValues(r); retur
 function show(id) { for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id); }
 let toastTimer;
 function toast(text, ms = 2500) { const el = $('toast'); el.textContent = text; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, ms); }
+const buzz = ms => { if (navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
 
 // ---------- profile ----------
 const profile = { name: store.get('pl-name', ''), av: store.get('pl-av', AVATARS[Math.floor(Math.random() * AVATARS.length)]) };
@@ -234,35 +294,45 @@ function readProfile() {
 }
 
 // ---------- sound ----------
-let ac = null, muted = store.get('pl-sfx-off', false);
+// Everything is synthesised, so there are no files to load.
+let ac = null, muted = store.get('pl-sfx-off', false), master = null;
 function unlockAudio() {
-  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination); } catch (e) {}
+  }
   if (ac && ac.state === 'suspended') ac.resume();
 }
-function tone(freq, dur, type, vol, slide) {
+function tone(freq, dur, type = 'sine', vol = 0.08, slide = 0, when = 0) {
   if (!ac || muted) return;
-  const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + when;
   o.type = type; o.frequency.setValueAtTime(freq, t0);
   if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t0 + dur);
-  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-  o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(master); o.start(t0); o.stop(t0 + dur + 0.02);
 }
-function noise(dur, vol, freq) {
+function noise(dur, vol, freq, q = 1, when = 0, type = 'bandpass') {
   if (!ac || muted) return;
   const len = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-  s.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
-  s.connect(f).connect(g).connect(ac.destination); s.start();
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), t0 = ac.currentTime + when;
+  s.buffer = buf; f.type = type; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol;
+  s.connect(f).connect(g).connect(master); s.start(t0);
 }
+const clack = (when = 0, vol = 0.12) => { noise(0.035, vol, 4200 + Math.random() * 1500, 4, when); tone(2600 + Math.random() * 800, 0.04, 'triangle', vol * 0.35, 0, when); };
 const sfx = {
-  card: () => noise(0.08, 0.4, 3000),
-  chip: () => { tone(2400, 0.05, 'triangle', 0.05); setTimeout(() => tone(2900, 0.05, 'triangle', 0.04), 45); },
-  check: () => { tone(300, 0.05, 'square', 0.03); setTimeout(() => tone(300, 0.05, 'square', 0.03), 90); },
-  fold: () => noise(0.15, 0.25, 1200),
-  turn: () => { tone(660, 0.12, 'sine', 0.09); setTimeout(() => tone(990, 0.16, 'sine', 0.08), 110); },
-  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.07), i * 95)),
-  tick: () => tone(1200, 0.03, 'square', 0.03),
+  deal: (when = 0) => noise(0.09, 0.35, 2600, 0.8, when),
+  flip: (when = 0) => { noise(0.06, 0.3, 1800, 1, when); tone(900, 0.05, 'triangle', 0.03, 1.4, when); },
+  chips: (n = 3) => { for (let i = 0; i < n; i++) clack(i * 0.045 + Math.random() * 0.02); },
+  slide: () => { noise(0.35, 0.18, 1400, 0.6); for (let i = 0; i < 6; i++) clack(0.05 + i * 0.05, 0.06); },
+  check: () => { tone(140, 0.08, 'sine', 0.25); noise(0.04, 0.2, 600, 2); tone(140, 0.08, 'sine', 0.25, 0, 0.12); noise(0.04, 0.2, 600, 2, 0.12); },
+  fold: () => noise(0.22, 0.22, 900, 0.7),
+  allin: () => { tone(160, 0.6, 'sawtooth', 0.06, 4); noise(0.5, 0.2, 800, 0.5, 0, 'lowpass'); for (let i = 0; i < 10; i++) clack(0.25 + i * 0.03, 0.09); },
+  turn: () => { tone(784, 0.18, 'sine', 0.12); tone(1175, 0.28, 'sine', 0.1, 0, 0.12); },
+  tick: () => tone(1500, 0.03, 'square', 0.03),
+  win: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.25, 'triangle', 0.09, 0, i * 0.09)); for (let i = 0; i < 14; i++) tone(2000 + Math.random() * 2000, 0.08, 'sine', 0.025, 0, 0.45 + i * 0.05); },
+  lose: () => { tone(392, 0.2, 'triangle', 0.06); tone(330, 0.3, 'triangle', 0.06, 0, 0.18); },
+  tap: () => tone(900, 0.03, 'triangle', 0.05),
+  showdown: () => { tone(220, 0.4, 'sawtooth', 0.04, 1.5); },
 };
 
 // ---------- home: create or join ----------
@@ -287,7 +357,7 @@ function renderHome() {
       <h2>Have a code?</h2>
       <div class="row2"><div><input type="text" id="jcode" maxlength="5" placeholder="ABC12" style="text-transform:uppercase"></div><div style="flex:0 0 auto"><button class="big-btn" style="margin:0;padding:12px 20px" data-a="joincode">Join</button></div></div>
     </div>
-    <p class="small">Up to 6 players per table, plus anyone else can watch. Chips are just for this game: everyone starts with the same stack and the host can end the game to see who won.</p>
+    <p class="small">Up to 6 players per table, plus anyone else can watch. Chips are just for this game: everyone starts with the same stack and the host can end the game to see who won. Tip: turn your phone sideways for the full table.</p>
   </div>`;
 }
 
@@ -337,6 +407,7 @@ async function joinTable(withVideo) {
   if (!readProfile()) { $('jerr').textContent = 'Enter your name first'; return; }
   unlockAudio();
   const code = params.get('t') || new URL(location.href).searchParams.get('t');
+  if (preview) { preview.getTracks().forEach(t => t.stop()); preview = null; }
   if (withVideo) await V.startLocal();
   V.camOn = !!(V.local && V.local.getVideoTracks().length);
   V.micOn = !!(V.local && V.local.getAudioTracks().length);
@@ -347,9 +418,10 @@ async function joinTable(withVideo) {
 // ---------- connection to the table ----------
 let S = null;            // latest state from the server
 let me = null, CODE = null, ws = null, fatal = false, retry = 0, offset = 0;
-let pendingAct = false, raiseOpen = false, raiseTo = 0, auto = false, autoHand = -1;
+let pendingAct = false, raiseOpen = false, raiseTo = 0;
+let pre = null, preHand = -1, preStreet = -1;   // pre-selected action for my next turn: { kind: 'cf'|'ck'|'cl'|'ca', amt }
 let lastTurnKey = '', prevState = null, chatUnread = 0;
-const seen = new Map();  // card animation start times
+const seen = new Map();  // when each card / chip first appeared, for animations
 const chatLog = [];
 
 function ident(code) {
@@ -364,22 +436,25 @@ function startGame(code) {
   connect();
   // keep the connection alive and come back quickly after the phone sleeps
   setInterval(() => { if (ws && ws.readyState === 1) ws.send('ping'); }, 25000);
+  setInterval(() => V.watchdog(), 3000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && (!ws || ws.readyState > 1) && !fatal) connect(); });
   requestAnimationFrame(tickClock);
 }
+
+function banner(html) { const b = $('banner'); b.innerHTML = html || ''; b.style.display = html ? 'block' : 'none'; }
 
 function connect() {
   if (ws && ws.readyState <= 1) return;
   const { id, secret } = ident(CODE);
   ws = new WebSocket(`${API.replace(/^http/, 'ws')}/api/rooms/${CODE}/ws`);
   ws.onopen = () => {
-    retry = 0; $('banner').style.display = 'none';
+    retry = 0; banner(V.needsTap ? V.tapBanner() : '');
     send({ t: 'hello', id, secret, name: profile.name, av: profile.av, hostKey: store.get('pl-host-' + CODE, undefined) });
   };
   ws.onmessage = ev => { if (ev.data !== 'pong') onMessage(JSON.parse(ev.data)); };
   ws.onclose = () => {
     if (fatal) return;
-    $('banner').style.display = 'block';
+    banner('Reconnecting…');
     setTimeout(connect, Math.min(5000, 600 * 2 ** retry++));
   };
 }
@@ -388,6 +463,8 @@ function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 function onMessage(m) {
   if (m.t === 'welcome') {
     me = m.you;
+    if (Array.isArray(m.iceServers) && m.iceServers.length) ICE = m.iceServers;
+    if (params.has('debug') && params.get('ice')) ICE = JSON.parse(params.get('ice')); // testing only
     chatLog.length = 0; chatLog.push(...(m.chat || [])); renderChat();
     if (m.livekit && !V.lk && !V.lkFailed) V.startLiveKit(m.livekit);
     sendMedia();
@@ -398,6 +475,7 @@ function onMessage(m) {
     autoSit();
     effects();
     render();
+    fx();
     V.syncPeers();
     if (S.ended) showResults();
   } else if (m.t === 'error') {
@@ -422,28 +500,38 @@ const mySeat = () => S ? S.table.seats.findIndex(s => s && s.id === me) : -1;
 const player = id => S && S.players.find(p => p.id === id);
 const isHost = () => S && S.hostId === me;
 
-// sounds and buzzes from what changed
+// sounds, buzzes and pre-selected actions, from what changed
 function effects() {
   const t = S.table, p = prevState && prevState.table;
+  const i = mySeat(), s = i >= 0 ? t.seats[i] : null;
+  // pre-actions only last for the hand (check/call ones only for the street)
+  if (t.handNo !== preHand) { pre = null; preHand = t.handNo; }
+  if (t.board.length !== preStreet) { if (pre && (pre.kind === 'ck' || pre.kind === 'cl')) pre = null; preStreet = t.board.length; }
+  if (pre && s) {
+    const toCall = t.curBet - s.bet;
+    if ((pre.kind === 'ck' && toCall > 0) || (pre.kind === 'cl' && toCall !== pre.amt)) pre = null; // the bet changed, so ask again
+  }
   if (!p) return;
-  if (t.board.length > p.board.length || (t.handNo !== p.handNo && t.phase === 'hand')) sfx.card();
-  t.seats.forEach((s, i) => {
-    const q = p.seats[i];
-    if (!s || !q || s.id !== q.id || s.act === q.act || t.handNo !== p.handNo) return;
-    if (s.act === 'Fold') sfx.fold(); else if (s.act === 'Check') sfx.check(); else if (s.act) sfx.chip();
+  t.seats.forEach((x, k) => {
+    const q = p.seats[k];
+    if (!x || !q || x.id !== q.id || t.handNo !== p.handNo || x.act === q.act) return;
+    if (x.act === 'Fold') sfx.fold(); else if (x.act === 'Check') sfx.check(); else if (x.act === 'All-in') sfx.allin(); else if (x.act === 'Call') sfx.chips(3); else if (x.act === 'Raise' || x.act === 'Bet') sfx.chips(6);
   });
-  const i = mySeat();
   if (i >= 0 && t.toAct === i && !t.await) {
     const key = `${t.handNo}|${t.board.length}|${t.curBet}|${t.acted.length}`;
     if (key !== lastTurnKey) {
       lastTurnKey = key;
-      if (auto && autoHand === t.handNo) { const L = E.legal(t, i); act(L.canCheck ? 'check' : 'fold'); return; }
-      sfx.turn();
-      if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {}
+      if (pre) {
+        const L = E.legal(t, i), kind = pre.kind;
+        pre = null;
+        if (kind === 'cf') return act(L.canCheck ? 'check' : 'fold');
+        if (kind === 'ck' && L.canCheck) return act('check');
+        if (kind === 'cl' || kind === 'ca') return act(L.canCheck ? 'check' : 'call');
+      }
+      sfx.turn(); buzz(40);
       raiseOpen = false;
     }
   }
-  if (t.result && (!p.result || p.handNo !== t.handNo) && i >= 0 && t.seats[i] && t.seats[i].won > 0) sfx.win();
 }
 
 function act(action, to) {
@@ -453,29 +541,40 @@ function act(action, to) {
   renderBar();
 }
 
-// ---------- rendering ----------
-function cardHTML(c, key, extra = '') {
-  const now = performance.now();
-  if (!seen.has(key)) seen.set(key, now);
-  const age = now - seen.get(key);
-  const anim = age < 350 ? ` deal" style="animation-delay:-${Math.round(age)}ms` : '';
-  if (c == null) return `<div class="card back${anim}"></div>`;
-  const r = E.cardRank(c), s = E.cardSuit(c);
-  const hl = S.table.result && S.table.result.hl && S.table.result.hl.includes(c) ? ' hl' : '';
-  return `<div class="card${s === 1 || s === 2 ? ' red' : ''}${hl}${extra}${anim}"><span class="r">${E.rankLabel(r)}</span><span class="s">${E.SUITS[s]}</span></div>`;
-}
-
+// ---------- geometry ----------
+let G = { seats: [], pot: { x: 0, y: 0 } };
 function layout() {
   const box = $('tbl').getBoundingClientRect(), W = box.width, H = box.height;
   const compact = W > H && innerHeight <= 500;
   const POS = H >= W
     ? [[50, 85], [12, 66], [12, 25], [50, 9], [88, 25], [88, 66]]
     : [[50, 84], [17, 70], [17, 27], [50, 10], [83, 27], [83, 70]];
-  const meHalf = compact ? 40 : 84, botHalf = compact ? 54 : 62;
+  const meHalf = compact ? 42 : 88, botHalf = compact ? 54 : 62;
   const seatY = k => k === 0 ? (compact ? H - meHalf - 4 : Math.min(POS[0][1] / 100 * H, H - meHalf))
                              : Math.max(POS[k][1] / 100 * H, botHalf + 2);
   return { W, H, compact, POS, meHalf, botHalf, seatY, cx: W / 2, cy: (seatY(3) + botHalf + seatY(0) - meHalf) / 2 };
 }
+
+// ---------- rendering ----------
+// An animation class that survives re-renders: the element keeps animating from when it first appeared.
+function anim(key, cls, dur, delay = 0) {
+  const now = performance.now();
+  if (!seen.has(key)) seen.set(key, now + delay);
+  const age = now - seen.get(key);
+  return age < dur ? { cls: ' ' + cls, style: `animation-delay:${Math.round(-age)}ms;` } : { cls: '', style: '' };
+}
+
+function cardHTML(c, key, opt = {}) {
+  const a = opt.anim ? anim(key, opt.anim, opt.dur || 600, opt.delay || 0) : { cls: '', style: '' };
+  const style = a.style + (opt.vars || '');
+  if (c == null) return `<div class="card back${a.cls}" style="${style}"></div>`;
+  const r = E.cardRank(c), s = E.cardSuit(c), res = S.table.result;
+  const hl = res && res.hl && res.hl.includes(c) ? ' hl' : '';
+  const dim = opt.dim || (res && res.hands && res.hl && res.hl.length && !hl && opt.board) ? ' dim' : '';
+  return `<div class="card${s === 1 || s === 2 ? ' red' : ''}${hl}${dim}${a.cls}" style="${style}"><span class="r">${E.rankLabel(r)}</span><span class="s">${E.SUITS[s]}</span></div>`;
+}
+
+const ACT_ICON = { Call: '✔', Check: '✔', Raise: '⬆', Bet: '⬆', Fold: '✖', 'All-in': '🔥', SB: 'SB', BB: 'BB' };
 
 function render() {
   if (!S) return;
@@ -483,52 +582,83 @@ function render() {
   renderBar();
   const t = S.table, L = layout(), my = mySeat();
   const base = my >= 0 ? my : 0; // my seat is always drawn at the bottom
+  const n = t.seats.filter(s => s && s.inHand).length;
+  G = { seats: [], pot: { x: L.cx, y: L.cy - 50 }, L };
   let html = '<div class="felt"></div>';
   for (let i = 0; i < E.SEATS; i++) {
     const k = (i - base + E.SEATS) % E.SEATS, s = t.seats[i];
     const x = L.POS[k][0] / 100 * L.W, y = L.seatY(k);
+    const dx = L.cx - x, dy = L.cy - y, d = Math.hypot(dx, dy) || 1;
+    let bx = k === 0 ? x : x + dx / d * Math.min(78, d * 0.5);
+    let by = k === 0 ? y - L.meHalf - 14 : y + dy / d * Math.min(78, d * 0.5);
+    if (L.compact && k === 3) { bx = x - 86; by = y + 25; }
+    G.seats[i] = { x, y, bx, by, k };
     if (!s) {
       const canSit = my < 0 && !S.ended;
-      html += `<div class="seat empty" style="left:${x}px;top:${y}px"><div class="plate">${canSit ? `<button class="sitbtn" data-a="sit" data-v="${i}">Sit here</button>` : '<div class="nm" style="margin:26px 0">Empty seat</div>'}</div></div>`;
+      html += `<div class="seat" style="left:${x}px;top:${y}px"><div class="plate">${canSit ? `<button class="sitbtn" data-a="sit" data-v="${i}">Sit here</button>` : '<div class="empty-seat">Empty</div>'}</div></div>`;
       continue;
     }
     const p = player(s.id) || {};
     const mine = s.id === me;
     const out = (!s.inHand || s.folded) && t.phase === 'hand';
-    const cls = ['seat', mine ? 'me' : '', out ? 'out' : '', t.toAct === i && !t.await ? 'turn' : '', s.won > 0 && t.phase !== 'hand' ? 'win' : ''].join(' ');
+    const won = s.won > 0 && t.phase !== 'hand';
+    const cls = ['seat', mine ? 'me' : '', out ? 'out' : '', t.toAct === i && !t.await ? 'turn' : '', won ? 'win' : ''].join(' ');
     let cards = '';
     if (s.hole.length && (s.inHand || mine) && (!s.folded || mine)) {
-      cards = s.hole.map((c, j) => cardHTML(c, `${t.handNo}-${i}-${j}-${c == null ? 'd' : 'u'}`, mine && s.folded ? ' dim' : '')).join('');
+      // cards fly in from the middle of the table, one at a time round the table
+      const order = ((i - t.dealer - 1 + E.SEATS) % E.SEATS);
+      cards = s.hole.map((c, j) => {
+        const faceUp = c != null, key = `${t.handNo}-${i}-${j}-${faceUp ? 'u' : 'd'}`;
+        const fresh = !seen.has(`${t.handNo}-${i}-${j}-d`) && !seen.has(`${t.handNo}-${i}-${j}-u`);
+        const flipping = faceUp && !mine && seen.has(`${t.handNo}-${i}-${j}-d`);
+        const opt = flipping ? { anim: 'flip', dur: 600 }
+          : fresh || seen.has(key) ? { anim: 'deal', dur: 500, delay: (j * n + order) * 90, vars: `--fx:${Math.round(L.cx - x)}px;--fy:${Math.round(L.cy - y)}px;` } : {};
+        return cardHTML(c, key, { ...opt, dim: mine && s.folded });
+      }).join('');
     }
-    const label = s.won > 0 && t.phase !== 'hand' ? `<div class="tag win">+${fmt(s.won)}</div>`
-      : s.sitOut ? '<div class="tag away">Away</div>'
-      : s.act ? `<div class="tag ${s.act.toLowerCase().replace('-', '')}">${esc(s.act)}</div>` : '';
-    const hand = t.result && t.result.hands && s.show ? (t.result.hands.find(h => h.seat === i) || {}).hand : '';
+    const showHand = t.result && t.result.hands && s.show ? (t.result.hands.find(h => h.seat === i) || {}).hand : '';
+    const weak = !mine && V.weak(s.id);
+    const stackKey = `st-${i}-${s.stack}`;
+    const bump = won && !seen.has(stackKey) ? ' bump' : '';
+    seen.set(stackKey, 1);
     html += `<div class="${cls}" style="left:${x}px;top:${y}px" data-seat="${i}">
       <div class="cards">${cards}</div>
-      <div class="plate">${label}
+      <div class="plate">${s.sitOut ? '<div class="away">AWAY</div>' : ''}
         <div class="face" data-a="face" data-v="${esc(s.id)}" id="face-${i}"><div class="slot" data-vid="${esc(s.id)}"><span class="emo">${esc(s.av)}</span></div>
-          ${(mine ? !V.micOn : p.online && !p.mic) ? '<span class="mic-off">🔇</span>' : ''}${p.online === false ? '<span class="offline">💤</span>' : ''}</div>
-        <div class="nm">${esc(s.name)}${S.hostId === s.id ? ' 👑' : ''}</div><div class="st">${s.allIn && t.phase === 'hand' ? 'ALL-IN' : fmt(s.stack)}</div>
-        ${hand ? `<div class="hn">${esc(hand)}</div>` : ''}
+          ${(mine ? !V.micOn : p.online && !p.mic) ? '<span class="ico mic-off">🔇</span>' : ''}${p.online === false ? '<span class="ico offline">💤</span>' : weak ? '<span class="ico weak" title="Video connecting">📶</span>' : ''}</div>
+        <div class="info-plate"><div class="nm">${esc(s.name)}${S.hostId === s.id ? ' 👑' : ''}</div><div class="st${bump}">${s.allIn && t.phase === 'hand' ? 'ALL-IN' : fmt(s.stack)}</div>
+        ${showHand ? `<div class="hn">${esc(showHand)}</div>` : ''}</div>
       </div></div>`;
-    const dx = L.cx - x, dy = L.cy - y, d = Math.hypot(dx, dy) || 1;
-    let bx = k === 0 ? x : x + dx / d * Math.min(76, d * 0.5);
-    let by = k === 0 ? y - L.meHalf - 14 : y + dy / d * Math.min(76, d * 0.5);
-    if (L.compact && k === 3) { bx = x - 84; by = y + 25; }
-    if (s.bet > 0) html += `<div class="bet" style="left:${bx}px;top:${by}px"><i class="chip"></i>${fmt(s.bet)}</div>`;
+    // what they did, on the felt in front of them
+    const label = t.phase === 'hand' && s.act && (s.bet > 0 || s.act === 'Check' || s.act === 'Fold');
+    if (label) {
+      const c = s.act.toLowerCase().replace('-', '');
+      const a = anim(`bet-${t.handNo}-${t.board.length}-${i}-${s.bet}-${s.act}`, 'in', 450);
+      const text = s.bet > 0 ? fmt(s.bet) : s.act.toUpperCase();
+      html += `<div class="bet ${c}${a.cls}" style="left:${bx}px;top:${by}px;--fx:${Math.round(x - bx)}px;--fy:${Math.round(y - by)}px;${a.style}"><span class="i">${ACT_ICON[s.act] || ''}</span>${text}</div>`;
+    }
     if (t.handNo && i === t.dealer) {
-      const [ox, oy] = k === 0 ? (L.compact ? [100, 0] : [80, 30]) : L.POS[k][0] === 50 ? [64, 30] : [Math.sign(dx) * 56, 48];
+      const [ox, oy] = k === 0 ? (L.compact ? [100, 0] : [82, 30]) : L.POS[k][0] === 50 ? [66, 30] : [Math.sign(dx) * 58, 48];
       html += `<div class="dealer" style="left:${x + ox}px;top:${y + oy}px">D</div>`;
     }
   }
   let board = '';
-  for (let k = 0; k < 5; k++) board += t.board[k] != null ? cardHTML(t.board[k], `${t.handNo}-b${k}`) : '<div class="bslot"></div>';
+  for (let k = 0; k < 5; k++) {
+    if (t.board[k] == null) { board += '<div class="bslot"></div>'; continue; }
+    const firstNew = t.board.length === 3 ? 0 : t.board.length - 1;
+    board += cardHTML(t.board[k], `${t.handNo}-b${k}`, { anim: 'flip', dur: 700, delay: Math.max(0, k - firstNew) * 160, board: true });
+  }
   const potTotal = t.pot + t.seats.reduce((a, s) => a + (s ? s.bet : 0), 0);
-  const pot = t.pot > 0 ? `<div id="pot"><i class="chip"></i>Pot ${fmt(potTotal)}</div>` : '<div id="pot" style="visibility:hidden">Pot</div>';
-  const msg = t.result && t.phase !== 'hand' ? esc(t.result.msg) : '';
+  const pot = t.pot > 0 || (t.phase === 'hand' && potTotal > 0) ? `<div id="pot"><span class="chip k"></span><span class="chip"></span>Pot ${fmt(potTotal)}</div>` : '<div id="pot" style="visibility:hidden">Pot</div>';
+  let msg = '';
+  if (t.result && t.phase !== 'hand') {
+    const a = anim(`msg-${t.handNo}`, 'pop', 600);
+    msg = `<span class="${a.cls.trim()}" style="${a.style}">${t.result.hands ? '🏆 ' : ''}${esc(t.result.msg)}</span>`;
+  }
   html += `<div id="center" style="top:${L.cy}px">${pot}<div id="board">${board}</div><div id="msg">${msg}</div></div>`;
   $('tbl').innerHTML = html;
+  const potEl = $('pot');
+  if (potEl) { const r = potEl.getBoundingClientRect(), tb = $('tbl').getBoundingClientRect(); G.pot = { x: r.left + r.width / 2 - tb.left, y: r.top + r.height / 2 - tb.top }; }
   V.place();
   for (const b of bubbles) placeBubble(b);
 }
@@ -545,11 +675,20 @@ function renderTop() {
     <button class="pill" data-a="menu">☰</button>`;
 }
 
+function strengthHTML(s, t) {
+  if (!s || !s.hole.length || !s.inHand || s.hole.includes(null)) return '';
+  const hint = E.handHint(s.hole, t.board);
+  let cat;
+  if (t.board.length) cat = Math.floor(E.bestHand(s.hole.concat(t.board)).score / 759375);
+  else { const [a, b] = s.hole.map(E.cardRank); cat = a === b ? 2 + (a >= 10) : (a >= 12 || b >= 12) ? 1 : 0; }
+  const bars = Array.from({ length: 6 }, (_, k) => `<i class="${k <= Math.min(5, cat) ? 'on' : ''}"></i>`).join('');
+  return `<span class="strength"><span class="meter">${bars}</span><b>${esc(hint)}</b></span>`;
+}
+
 function renderBar() {
   if (!S) return;
   const t = S.table, i = mySeat(), s = i >= 0 ? t.seats[i] : null;
-  const hint = s && s.hole.length && s.inHand ? E.handHint(s.hole, t.board) : '';
-  let left = hint ? `Your hand: <b>${esc(hint)}</b>` : '', right = '', body;
+  let left = strengthHTML(s, t), right = '', body;
   const myTurn = s && t.phase === 'hand' && t.toAct === i && !t.await;
   if (myTurn && S.timer && S.timer.seat === i) right = `<span class="clock" id="myclock"></span>`;
 
@@ -570,13 +709,14 @@ function renderBar() {
         </div></div>`;
     } else {
       const callLbl = toCall === 0 ? 'Check' : toCall >= s.stack ? `All-in ${fmt(s.stack)}` : `Call ${fmt(toCall)}`;
-      body = `<div class="btns">
+      body = `<div class="btns turn">
         <button class="b-fold" data-a="fold" ${pendingAct ? 'disabled' : ''}>Fold</button>
         <button class="b-call" data-a="call" ${pendingAct ? 'disabled' : ''}>${callLbl}</button>
         <button class="b-raise" data-a="raise" ${L.canRaise && !pendingAct ? '' : 'disabled'}>${word}</button></div>`;
     }
   } else {
     let status = '', btn = '';
+    const live = t.phase === 'hand' && s.inHand && !s.folded && !s.allIn;
     if (s.stack === 0 && !(t.phase === 'hand' && s.inHand && !s.folded)) btn = `<button class="b-gold" data-a="rebuy">Rebuy ${fmt(t.settings.stack)}</button>`;
     else if (s.sitOut) btn = `<button class="b-go" data-a="back">I'm back</button>`;
     else if (!S.started) {
@@ -591,11 +731,20 @@ function renderBar() {
     }
     else if (!s.inHand) status = 'You will be dealt in next hand';
     else if (s.folded) status = 'You folded';
-    else if (s.allIn) status = "You're all-in!";
-    else if (t.toAct >= 0) status = `${esc(t.seats[t.toAct].name)} is thinking…`;
-    else status = 'Dealing…';
-    if (t.phase === 'hand' && s.inHand && !s.folded && !s.allIn && !myTurn) right = `<button class="tg ${auto && autoHand === t.handNo ? 'on' : ''}" data-a="auto">${auto && autoHand === t.handNo ? '✓ ' : ''}Check/Fold</button>`;
-    body = btn ? `<div class="btns">${btn}</div>` : `<div class="wait">${status}</div>`;
+    else if (s.allIn) status = "You're all-in! 🤞";
+    if (live && !btn) {
+      // pre-select what to do when my turn comes, like the big poker apps
+      const toCall = t.curBet - s.bet;
+      const on = k => pre && pre.kind === k ? ' on' : '';
+      const mid = toCall === 0 ? `<button class="${on('ck').trim()}" data-a="pre" data-v="ck"><span class="box"></span>Check</button>`
+        : `<button class="${on('cl').trim()}" data-a="pre" data-v="cl"><span class="box"></span>Call ${fmt(Math.min(toCall, s.stack))}</button>`;
+      body = `<div class="btns pre"><button class="${on('cf').trim()}" data-a="pre" data-v="cf"><span class="box"></span>Check/Fold</button>${mid}<button class="${on('ca').trim()}" data-a="pre" data-v="ca"><span class="box"></span>Call Any</button></div>`;
+      if (!left && t.toAct >= 0) left = `${esc(t.seats[t.toAct].name)} is thinking…`;
+      right = t.toAct >= 0 ? `<span style="color:#b99aa6">${esc(t.seats[t.toAct].name)}'s turn</span>` : '';
+    } else {
+      if (!status && t.toAct >= 0) status = `${esc(t.seats[t.toAct].name)} is thinking…`;
+      body = btn ? `<div class="btns">${btn}</div>` : `<div class="wait">${status || 'Dealing…'}</div>`;
+    }
   }
   $('bar').innerHTML = `<div class="info"><span>${left}</span>${right}</div><div class="body">${body}</div>`;
   const rs = $('rs');
@@ -603,6 +752,7 @@ function renderBar() {
     raiseTo = +rs.value;
     $('rv').textContent = fmt(raiseTo);
     $('rgo').textContent = raiseLabel(t.curBet === 0 ? 'Bet' : 'Raise', E.legal(t, i));
+    if (Math.random() < 0.5) sfx.tap();
   });
 }
 function raiseLabel(word, L) { return raiseTo >= L.maxTo ? `All-in ${fmt(L.maxTo)}` : `${word} ${word === 'Raise' ? 'to ' : ''}${fmt(raiseTo)}`; }
@@ -615,20 +765,113 @@ function presetTo(v) {
   return Math.max(L.minTo, Math.min(L.maxTo, to));
 }
 
-// the turn clock: a ring around the player's face, and seconds in my action bar
+// the turn clock: a ring around the player's face that drains green → yellow → red
 let lastTick = -1;
 function tickClock() {
   requestAnimationFrame(tickClock);
   if (!S || !S.timer) return;
   const left = S.timer.at - (Date.now() + offset), p = Math.max(0, Math.min(1, left / S.timer.total));
   const face = $('face-' + S.timer.seat);
-  if (face) { face.style.setProperty('--p', p); face.classList.toggle('low', left < 5000); }
+  if (face) {
+    face.style.setProperty('--p', p);
+    face.style.setProperty('--c', p > 0.5 ? '#4caf50' : p > 0.25 ? '#ffc107' : '#ff3d00');
+  }
   const clock = $('myclock');
   if (clock) {
     const secs = Math.max(0, Math.ceil(left / 1000));
     clock.textContent = `⏱ ${secs}s`;
-    if (secs <= 5 && secs !== lastTick && secs > 0) sfx.tick();
+    clock.classList.toggle('low', secs <= 5);
+    if (secs <= 5 && secs !== lastTick && secs > 0) { sfx.tick(); if (secs <= 3) buzz(20); }
     lastTick = secs;
+  }
+}
+
+// ---------- table effects: chips flying, winnings, confetti ----------
+function fxEl(cls, x, y, html = '') {
+  const el = document.createElement('div');
+  el.className = cls; el.style.left = x + 'px'; el.style.top = y + 'px'; el.innerHTML = html;
+  $('fx').appendChild(el);
+  return el;
+}
+function flyChips(from, to, count = 4, delay = 0, colors = ['', 'g', 'b', 'k']) {
+  for (let c = 0; c < count; c++) {
+    const el = fxEl('fxchip', from.x + (Math.random() * 10 - 5), from.y + (Math.random() * 6 - 3), `<span class="chip ${colors[c % colors.length]}" style="width:18px;height:18px"></span>`);
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const a = el.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 30}px) scale(1.15)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(.9)`, opacity: 0.9 },
+    ], { duration: 650, delay: delay + c * 60, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'both' });
+    a.onfinish = () => el.remove();
+  }
+}
+function floatText(x, y, text, big) {
+  const W = $('fx').clientWidth, pad = big ? 90 : 50;
+  const el = fxEl('fxtext' + (big ? ' big' : ''), Math.max(pad, Math.min(W - pad, x)), y);
+  el.textContent = text;
+  setTimeout(() => el.remove(), 2000);
+}
+function confetti(x, y, n = 60) {
+  const colors = ['#ffd54f', '#ff5252', '#69f0ae', '#40c4ff', '#e040fb', '#fff'];
+  for (let c = 0; c < n; c++) {
+    const el = fxEl('confetti', x, y);
+    el.style.background = colors[c % colors.length];
+    const ang = Math.random() * Math.PI * 2, dist = 80 + Math.random() * 200;
+    const a = el.animate([
+      { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist - 60}px) rotate(${Math.random() * 720}deg)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(${Math.cos(ang) * dist * 1.1}px, ${Math.sin(ang) * dist + 160}px) rotate(${Math.random() * 1080}deg)`, opacity: 0 },
+    ], { duration: 1600 + Math.random() * 600, easing: 'cubic-bezier(.2,.7,.4,1)' });
+    a.onfinish = () => el.remove();
+  }
+}
+
+function fx() {
+  const p = prevState && prevState.table, t = S.table;
+  if (!p || !G.seats.length) return;
+  const sameHand = p.handNo === t.handNo;
+  // bets swept into the pot at the end of a street
+  const swept = sameHand && (t.board.length > p.board.length || (t.phase !== 'hand' && p.phase === 'hand'));
+  if (swept) {
+    let any = false;
+    p.seats.forEach((q, k) => { if (q && q.bet > 0 && G.seats[k]) { any = true; flyChips({ x: G.seats[k].bx, y: G.seats[k].by }, G.pot, 3); } });
+    if (any) sfx.slide();
+  }
+  // a new deal: card sounds as they fly round
+  if (t.handNo !== p.handNo && t.phase === 'hand') {
+    const n = t.seats.filter(s => s && s.inHand).length;
+    for (let c = 0; c < n * 2; c++) sfx.deal(c * 0.09);
+  }
+  if (t.board.length > p.board.length && sameHand) {
+    const firstNew = p.board.length;
+    for (let c = firstNew; c < t.board.length; c++) sfx.flip((c - firstNew) * 0.16);
+  }
+  // someone shoves
+  t.seats.forEach((s, k) => {
+    const q = p.seats[k];
+    if (s && q && sameHand && s.act === 'All-in' && q.act !== 'All-in' && G.seats[k]) {
+      floatText(G.seats[k].x, G.seats[k].y - 30, 'ALL IN!', true);
+      if (s.id === me) confetti(G.seats[k].x, G.seats[k].y, 25);
+    }
+  });
+  // the pot goes to the winners
+  if (t.result && t.phase !== 'hand' && (p.phase === 'hand' || p.handNo !== t.handNo)) {
+    const delay = t.result.hands ? 700 : 350;
+    if (t.result.hands) sfx.showdown();
+    setTimeout(() => {
+      let iWon = false;
+      for (const w of t.result.winners) {
+        const g = G.seats[w.seat];
+        if (!g) continue;
+        flyChips(G.pot, { x: g.x, y: g.y }, Math.min(10, 4 + Math.floor(w.amount / (t.settings.bb * 5))), 0);
+        setTimeout(() => floatText(g.x, g.y - 40, '+' + fmt(w.amount)), 500);
+        if (t.seats[w.seat] && t.seats[w.seat].id === me) iWon = true;
+      }
+      sfx.slide();
+      const mine = mySeat();
+      if (iWon) { setTimeout(() => { sfx.win(); buzz([60, 40, 60]); confetti(G.seats[mine].x, G.seats[mine].y - 20, 70); }, 450); }
+      else if (mine >= 0 && t.result.hands && t.result.hands.some(h => h.seat === mine)) setTimeout(sfx.lose, 450);
+    }, delay);
   }
 }
 
@@ -642,6 +885,7 @@ function onChatMsg(m) {
   if (!$('chat').classList.contains('on') && m.id !== me) { chatUnread++; renderTop(); }
   const b = { id: m.id, text: m.text, until: Date.now() + 4500 };
   bubbles.push(b); placeBubble(b);
+  tone(1320, 0.06, 'sine', 0.04);
   setTimeout(() => { bubbles.splice(bubbles.indexOf(b), 1); if (b.el) b.el.remove(); }, 4500);
 }
 function seatPoint(id) {
@@ -663,15 +907,14 @@ function placeBubble(b) {
 function flyReaction(m) {
   const pt = seatPoint(m.to || m.from);
   if (!pt) return;
-  const el = document.createElement('div');
-  el.className = 'fly'; el.textContent = m.emoji;
-  el.style.left = pt.x + 'px'; el.style.top = (pt.y + 30) + 'px';
-  $('tbl').appendChild(el);
+  const el = fxEl('fly', pt.x, pt.y + 30);
+  el.textContent = m.emoji;
+  tone(700, 0.1, 'sine', 0.05, 1.6);
   setTimeout(() => el.remove(), 1700);
 }
 
 // ---------- modals ----------
-function modal(html) { $('modal').innerHTML = `<div class="panel">${html}</div>`; $('modal').style.display = 'flex'; }
+function modal(html, cls = '') { $('modal').innerHTML = `<div class="panel ${cls}">${html}</div>`; $('modal').style.display = 'flex'; }
 function closeModal() { $('modal').style.display = 'none'; $('modal').innerHTML = ''; }
 
 function menuModal() {
@@ -683,6 +926,7 @@ function menuModal() {
     <button class="pb" data-a="standings">🏆 Standings</button>
     ${i >= 0 ? `<button class="pb" data-a="sitout-toggle">${t.seats[i].sitOut ? "I'm back" : 'Sit out next hand'}</button><button class="pb" data-a="stand">Leave my seat (watch)</button>` : ''}
     <button class="pb" data-a="sfx">${muted ? '🔈 Turn game sounds on' : '🔇 Turn game sounds off'}</button>
+    <button class="pb" data-a="fixvideo">🔄 Reconnect video</button>
     ${host ? `<hr style="margin:16px 0;border:0;border-top:1px solid #eee">
       <h2 style="font-size:18px">Host controls 👑</h2>
       ${!S.started ? '' : `<button class="pb" data-a="pause">${S.paused ? '▶️ Resume game' : '⏸ Pause after this hand'}</button>`}
@@ -702,6 +946,7 @@ let resultsShown = false;
 function showResults(force) {
   if (resultsShown && !force) return;
   resultsShown = true;
+  if (!force) { sfx.win(); confetti(innerWidth / 2, innerHeight / 3, 90); }
   modal(`<h2>🏆 Final results</h2>${standingsHTML()}<button class="pb ok" data-a="gohome">Start a new table</button><button class="pb" data-a="close">Look at the table</button>`);
 }
 
@@ -720,6 +965,11 @@ function faceModal(id) {
   }
 }
 
+function confirmAllIn(amount) {
+  modal(`<h2>ALL-IN?</h2><p>Put all ${fmt(amount)} of your chips in the middle.</p>
+    <button class="pb ok" data-a="allin-yes">🔥 All in for ${fmt(amount)}</button><button class="pb" data-a="close">Not yet</button>`, 'allin');
+}
+
 async function invite() {
   const url = new URL(location.href);
   url.search = '';
@@ -736,11 +986,11 @@ async function invite() {
 function sendMedia() { send({ t: 'media', cam: V.camOn, mic: V.micOn }); }
 
 // ---------- video & voice ----------
-// Peer-to-peer by default: every phone sends a small video to every other phone, with the
-// table server passing the connection setup messages. If the server hands out a LiveKit token,
-// the LiveKit service relays the video instead, which copes better with mobile networks.
+// Peer-to-peer: every phone sends a small video to every other phone, with the table server passing the
+// connection setup messages. When the server provides relay (TURN) servers, connections that can't go
+// direct (typical on mobile data) are relayed instead. If the server hands out a LiveKit token, LiveKit is used.
 const V = {
-  local: null, camOn: false, micOn: false, pcs: new Map(), streams: new Map(), videos: new Map(), lk: null, lkFailed: false, sess: rid(8),
+  local: null, camOn: false, micOn: false, pcs: new Map(), streams: new Map(), videos: new Map(), lk: null, lkFailed: false, sess: rid(8), needsTap: false,
 
   async startLocal() {
     try {
@@ -758,6 +1008,7 @@ const V = {
     if (!v) {
       v = document.createElement('video');
       v.autoplay = true; v.playsInline = true; v.muted = true;
+      v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
       if (id === me) v.className = 'mirror';
       this.videos.set(id, v);
     }
@@ -765,12 +1016,25 @@ const V = {
     if (v.srcObject !== st) v.srcObject = st || null;
     return v;
   },
+  // voices play through <audio> elements; phones may block them until the user taps something
   audioEl(id) {
     let a = document.getElementById('aud-' + id);
     const st = this.streams.get(id);
     if (!st) { if (a) a.remove(); return; }
-    if (!a) { a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; $('audios').appendChild(a); }
-    if (a.srcObject !== st) { a.srcObject = st; a.play().catch(() => {}); }
+    if (!a) { a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; a.setAttribute('playsinline', ''); $('audios').appendChild(a); }
+    if (a.srcObject !== st) a.srcObject = st;
+    this.playAudio(a);
+  },
+  playAudio(a) {
+    const p = a.play();
+    if (p && p.catch) p.catch(() => { this.needsTap = true; banner(this.tapBanner()); });
+  },
+  tapBanner() { return '🔈 Sound is off on this phone <button data-a="unmute-all">Tap to hear the table</button>'; },
+  unmuteAll() {
+    unlockAudio();
+    this.needsTap = false; banner('');
+    for (const a of document.querySelectorAll('#audios audio')) this.playAudio(a);
+    for (const v of this.videos.values()) v.play().catch(() => {});
   },
   place() {
     for (const slot of document.querySelectorAll('.slot[data-vid]')) {
@@ -785,6 +1049,14 @@ const V = {
         if (v.paused) v.play().catch(() => {});
       }
     }
+  },
+  // a seat shows 📶 while its video is still connecting (or can't connect)
+  weak(id) {
+    if (this.lk) return false;
+    const p = player(id), peer = this.pcs.get(id);
+    if (!p || !p.online || !(p.cam || p.mic)) return false;
+    if (!peer) return true;
+    return peer.pc.connectionState !== 'connected' && Date.now() - peer.born > 6000;
   },
 
   // For each pair of phones the one with the smaller id always makes the offer, so offers never collide.
@@ -801,14 +1073,38 @@ const V = {
     }
   },
   asked: {},
+  // connections that stall get restarted: first an ICE restart, then a brand new connection
+  watchdog() {
+    if (this.lk || !S) return;
+    const now = Date.now();
+    for (const [id, peer] of this.pcs) {
+      const st = peer.pc.connectionState;
+      if (st === 'connected') { peer.okAt = now; peer.restarts = 0; continue; }
+      const stuck = now - Math.max(peer.born, peer.okAt || 0);
+      if (st === 'failed' || stuck > 12000) {
+        if (peer.offerer) {
+          if (peer.restarts < 1 && st !== 'new') { peer.restarts++; peer.born = now; try { peer.pc.restartIce(); } catch (e) {} }
+          else { this.closePeer(id); this.makePeer(id, true); }
+        } else if (stuck > 12000) { this.closePeer(id); this.asked[id] = 0; }
+      }
+    }
+    this.syncPeers();
+    if (S) for (const [i, s] of S.table.seats.entries()) {
+      if (!s || s.id === me) continue;
+      const face = $('face-' + i);
+      const has = face && face.querySelector('.weak');
+      if (!!has !== this.weak(s.id)) { render(); break; }
+    }
+  },
   makePeer(id, offerer, cid) {
-    const pc = new RTCPeerConnection({ iceServers: ICE });
+    const pc = new RTCPeerConnection({ iceServers: ICE, iceTransportPolicy: params.has('debug') && params.has('relay') ? 'relay' : 'all' });
     // cid names this one connection, so messages meant for an older one are ignored
-    const peer = { pc, offerer, cid: cid || rid(6), remoteSess: null, queue: Promise.resolve() };
+    const peer = { pc, offerer, cid: cid || rid(6), remoteSess: null, queue: Promise.resolve(), born: Date.now(), restarts: 0 };
     this.pcs.set(id, peer);
     pc.ontrack = ({ track }) => {
       let st = this.streams.get(id);
       if (!st) { st = new MediaStream(); this.streams.set(id, st); }
+      for (const old of st.getTracks()) if (old.kind === track.kind && old !== track) st.removeTrack(old);
       if (!st.getTracks().includes(track)) st.addTrack(track);
       track.onunmute = track.onmute = () => { if (S) render(); };
       this.audioEl(id);
@@ -817,7 +1113,8 @@ const V = {
     };
     pc.onicecandidate = ({ candidate }) => { if (candidate) this.signal(id, { candidate, cid: peer.cid }); };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed') { if (offerer) pc.restartIce(); }
+      if (pc.connectionState === 'connected') { peer.okAt = Date.now(); for (const a of document.querySelectorAll('#audios audio')) if (a.paused) this.playAudio(a); }
+      if (S) render();
     };
     if (offerer) {
       for (const kind of ['audio', 'video']) pc.addTransceiver(this.track(kind) || kind, { direction: 'sendrecv', streams: this.local ? [this.local] : [] });
@@ -835,13 +1132,19 @@ const V = {
     const a = document.getElementById('aud-' + id); if (a) a.remove();
     const v = this.videos.get(id); if (v) { v.srcObject = null; this.videos.delete(id); }
   },
+  restartAll() {
+    for (const id of [...this.pcs.keys()]) this.closePeer(id);
+    this.asked = {};
+    this.syncPeers();
+    toast('Reconnecting video…');
+  },
   signal(to, data) { send({ t: 'rtc', to, data: { ...data, sess: this.sess } }); },
   onSignal(from, data) {
     if (this.lk || !data) return;
     let peer = this.pcs.get(from);
     if (data.hi) {
       // they want us to call them; skip it if we're already connected to that same page
-      if (me > from || (peer && peer.remoteSess === data.sess)) return;
+      if (me > from || (peer && peer.remoteSess === data.sess && peer.pc.connectionState === 'connected')) return;
       if (peer) this.closePeer(from);
       this.makePeer(from, true);
       return;
@@ -866,7 +1169,7 @@ const V = {
           const kind = tr.receiver.track.kind;
           tr.direction = 'sendrecv';
           await tr.sender.replaceTrack(this.track(kind));
-          if (this.local) tr.sender.setStreams && tr.sender.setStreams(this.local);
+          if (this.local && tr.sender.setStreams) tr.sender.setStreams(this.local);
         }
         await pc.setLocalDescription();
         this.signal(from, { description: pc.localDescription, cid: peer.cid });
@@ -936,7 +1239,9 @@ document.addEventListener('click', async e => {
   const el = e.target.closest('[data-a]');
   if (!el) return;
   unlockAudio();
+  if (V.needsTap) V.unmuteAll();
   const a = el.dataset.a, v = el.dataset.v;
+  if (['fold', 'call', 'raise', 'raisego', 'preset', 'pre', 'sit', 'start', 'rebuy', 'back'].includes(a)) sfx.tap();
   switch (a) {
     case 'av':
       profile.av = v; store.set('pl-av', v);
@@ -951,14 +1256,33 @@ document.addEventListener('click', async e => {
     }
     case 'join-video': el.disabled = true; await joinTable(true); break;
     case 'join-novideo': joinTable(false); break;
+    case 'unmute-all': V.unmuteAll(); break;
 
     case 'fold': act('fold'); break;
-    case 'call': act('call'); break;
-    case 'raise': raiseOpen = true; raiseTo = presetTo('min'); renderBar(); render(); break;
-    case 'raiseback': raiseOpen = false; renderBar(); render(); break;
+    case 'call': {
+      const i = mySeat(), s = S.table.seats[i], toCall = S.table.curBet - s.bet;
+      if (toCall > 0 && toCall >= s.stack) { confirmAllIn(s.stack + s.bet); break; }
+      act('call'); break;
+    }
+    case 'raise': raiseOpen = true; raiseTo = presetTo('min'); render(); break;
+    case 'raiseback': raiseOpen = false; render(); break;
     case 'preset': raiseTo = presetTo(v); render(); break;
-    case 'raisego': act('raise', raiseTo); break;
-    case 'auto': auto = !(auto && autoHand === S.table.handNo); autoHand = S.table.handNo; renderBar(); break;
+    case 'raisego': {
+      const L = E.legal(S.table, mySeat());
+      if (raiseTo >= L.maxTo) { confirmAllIn(L.maxTo); break; }
+      act('raise', raiseTo); break;
+    }
+    case 'allin-yes': {
+      closeModal();
+      const L = E.legal(S.table, mySeat());
+      if (L.canRaise) act('raise', L.maxTo); else act('call');
+      break;
+    }
+    case 'pre': {
+      const s = S.table.seats[mySeat()], toCall = S.table.curBet - s.bet;
+      pre = pre && pre.kind === v ? null : { kind: v, amt: toCall };
+      renderBar(); break;
+    }
     case 'sit': send({ t: 'sit', seat: +v }); break;
     case 'rebuy': send({ t: 'rebuy' }); break;
     case 'back': send({ t: 'sitout', on: false }); break;
@@ -967,6 +1291,7 @@ document.addEventListener('click', async e => {
 
     case 'mic': V.toggle('mic'); break;
     case 'cam': V.toggle('cam'); break;
+    case 'fixvideo': closeModal(); V.restartAll(); break;
     case 'invite': closeModal(); invite(); break;
     case 'chat': $('chat').classList.add('on'); chatUnread = 0; renderTop(); setTimeout(() => $('chatinput').focus(), 50); break;
     case 'chat-close': $('chat').classList.remove('on'); break;
@@ -993,6 +1318,8 @@ document.addEventListener('click', async e => {
     case 'gohome': location.href = location.pathname + (params.get('api') ? '?api=' + encodeURIComponent(API) : ''); break;
   }
 });
+// a touch anywhere also lets the phone play the other players' voices
+document.addEventListener('touchend', () => { unlockAudio(); if (V.needsTap) V.unmuteAll(); }, { passive: true });
 $('chatform').addEventListener('submit', e => {
   e.preventDefault();
   const text = $('chatinput').value.trim();
@@ -1002,7 +1329,7 @@ $('chatform').addEventListener('submit', e => {
 addEventListener('resize', () => { if (S) render(); });
 addEventListener('popstate', () => location.reload());
 
-if (params.has('debug')) window.__pl = { V, state: () => S, me: () => me };
+if (params.has('debug')) window.__pl = { V, state: () => S, me: () => me, ice: () => ICE };
 
 // ---------- start ----------
 const code = (params.get('t') || '').toUpperCase();

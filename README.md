@@ -61,3 +61,8 @@ Cloudflare dashboard under Workers & Pages → `poker-live` → Settings → Var
 
 New tables then use LiveKit automatically; if it can't connect, the page falls back to peer-to-peer.
 
+**Video between phones on mobile data** needs a relay (TURN) server, because carriers block direct connections.
+Create one in the Cloudflare dashboard under Realtime → TURN Server, then add its two values to the `poker-live`
+Worker as secrets: `TURN_KEY_ID` and `TURN_KEY_API_TOKEN`. The server then hands every player short-lived relay
+credentials, and connections that can't go direct are relayed automatically (free up to Cloudflare's monthly allowance).
+

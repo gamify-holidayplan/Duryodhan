@@ -4,7 +4,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import * as E from '../../../shared/poker-engine.js';
 
-const STREET_MS = 900, RUNOUT_MS = 1600, NEXT_HAND_MS = 3000, SHOWDOWN_MS = 6000, FIRST_HAND_MS = 2500;
+const STREET_MS = 900, RUNOUT_MS = 1800, NEXT_HAND_MS = 3000, SHOWDOWN_MS = 6000, FIRST_HAND_MS = 2500;
 const OFFLINE_TURN_MS = 8000;              // don't make everyone wait out the full clock for someone who left
 const IDLE_DELETE_MS = 24 * 3600 * 1000;   // tables nobody has touched for a day are deleted
 const MAX_PLAYERS = 40;                    // seated players + spectators who have ever joined
@@ -132,7 +132,7 @@ export class PokerRoom extends DurableObject {
     if (m.hostKey && m.hostKey === this.d.hostKey) this.d.hostId = id;
     else if (!this.d.hostId || (!this.online(this.d.hostId) && si >= 0)) this.d.hostId = id;
 
-    this.send(ws, { t: 'welcome', you: id, code: this.d.code, livekit: await this.liveKit(id, p.name), chat: this.d.chat });
+    this.send(ws, { t: 'welcome', you: id, code: this.d.code, livekit: await this.liveKit(id, p.name), iceServers: await this.iceServers(), chat: this.d.chat });
     await this.commit();
   }
 
@@ -241,7 +241,7 @@ export class PokerRoom extends DurableObject {
     if (d.ended) return null;
     if (t.phase === 'hand' && t.await === 'street') {
       return cur && cur.type === 'street' && cur.hand === t.handNo && cur.board === t.board.length ? cur
-        : { type: 'street', hand: t.handNo, board: t.board.length, at: now + (t.runout ? RUNOUT_MS : STREET_MS) };
+        : { type: 'street', hand: t.handNo, board: t.board.length, at: now + (this.runningOut(t) ? RUNOUT_MS : STREET_MS) };
     }
     if (t.phase === 'hand' && t.toAct >= 0) {
       const key = this.turnKey(t);
@@ -257,6 +257,9 @@ export class PokerRoom extends DurableObject {
     }
     return null;
   }
+
+  // everyone left is all-in, so the rest of the cards are dealt slowly for drama
+  runningOut(t) { return t.runout || t.seats.filter(s => s && s.inHand && !s.folded && !s.allIn).length < 2; }
 
   // can a hand start once people who are offline are sat out?
   wouldStart() {
@@ -321,6 +324,27 @@ export class PokerRoom extends DurableObject {
       nextSettings: d.nextSettings, standings: E.results(t), now: Date.now(),
     };
     for (const w of sockets) this.send(w, { ...base, table: E.viewFor(t, this.pidOf(w)) });
+  }
+
+  // ---------- relay servers for video ----------
+  // Phones on mobile data usually can't connect to each other directly; a TURN relay passes the video through.
+  // Uses Cloudflare's TURN service when TURN_KEY_ID and TURN_KEY_API_TOKEN secrets are set.
+  async iceServers() {
+    const env = this.env, stun = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+    if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return stun;
+    try {
+      const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ttl: 12 * 3600 }),
+      });
+      if (!res.ok) return stun;
+      const j = await res.json();
+      const list = Array.isArray(j.iceServers) ? j.iceServers : j.iceServers ? [j.iceServers] : [];
+      // browsers stall on relay addresses using port 53, so leave those out
+      const clean = list.map(x => ({ ...x, urls: [].concat(x.urls || []).filter(u => !/:53(\?|$)/.test(u)) })).filter(x => x.urls.length);
+      return clean.length ? clean : stun;
+    } catch (e) { return stun; }
   }
 
   // ---------- optional LiveKit video ----------
