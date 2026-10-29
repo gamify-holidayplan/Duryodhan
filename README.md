@@ -61,3 +61,4 @@ Cloudflare dashboard under Workers & Pages → `poker-live` → Settings → Var
 
 New tables then use LiveKit automatically; if it can't connect, the page falls back to peer-to-peer.
 
+- **Aura Farm Defense** (`/games/aura-farm/`): lane defense. Plant Aura Blooms, Drip Shooters, Frost Fits, Rizz Rocks and Mog Mines to stop waves of aura-draining NPCs.

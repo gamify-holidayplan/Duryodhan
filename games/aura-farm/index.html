@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a0f33">
+<title>Aura Farm Defense</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; background: #1a0f33; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #home { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); z-index: 5;
+          padding: 7px 12px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(10,4,26,.7); padding: 16px; overflow-y: auto; touch-action: pan-y; }
+  .panel { text-align: center; width: min(400px, 100%); padding: 24px 20px; border-radius: 24px; margin: auto;
+           background: linear-gradient(160deg, #3b1f73, #1c0f3d); border: 1px solid rgba(255,215,120,.4); box-shadow: 0 0 50px rgba(190,120,255,.45); }
+  .panel h1 { margin: 0; font-size: 30px; letter-spacing: 1px; background: linear-gradient(90deg, #ffe17a, #ff9be6, #9be7ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .panel p { color: #d9ccff; margin: 10px 0 0; font-size: 15px; line-height: 1.45; }
+  .how { text-align: left; background: rgba(255,255,255,.08); border-radius: 14px; padding: 10px 14px; font-size: 14px; color: #efe7ff; margin-top: 12px; line-height: 1.5; }
+  .btn { display: block; width: 100%; margin-top: 14px; padding: 13px; border-radius: 30px; font-size: 18px; font-weight: 800; border: 0; text-decoration: none; cursor: pointer; }
+  .go { background: linear-gradient(90deg, #ffd54f, #ff8ad8); color: #2a0f3f; box-shadow: 0 0 22px rgba(255,170,220,.6); }
+  .alt { background: rgba(255,255,255,.12); color: #fff; font-size: 16px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="home" href="/">← All games</a>
+<div class="screen" id="menu"><div class="panel">
+  <h1 id="title">✨ Aura Farm Defense</h1>
+  <p id="sub">The NPCs are coming to drain your aura. Plant your squad and protect the farm.</p>
+  <div class="how" id="how">
+    • Tap a card, then tap a tile to plant it.<br>
+    • Tap glowing <b>aura orbs</b> to collect them. They're how you pay for plants.<br>
+    • <b>Aura Blooms</b> farm aura, so plant them early.<br>
+    • If an NPC reaches your side, the lane's <b>Aura Shield</b> fires once. After that, you lose.
+  </div>
+  <button class="btn go" id="go">START FARMING</button>
+  <a class="btn alt" href="/">All games</a>
+</div></div>
+<script>
+(() => {
+  const ROWS = 5, COLS = 9;
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let W, H, dpr, port, cs, gx, gy, bar;
+  function resize() {
+    dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; port = H > W;
+    cv.width = W * dpr; cv.height = H * dpr;
+    if (port) {
+      const barH = 88;
+      cs = Math.min((W - 12) / ROWS, (H - barH - 70) / (COLS + .7));
+      gx = (W - cs * ROWS) / 2; gy = 52 + Math.max(0, (H - barH - 60 - cs * (COLS + .7)) / 2);
+      bar = { x: 6, y: H - barH - 6, w: W - 12, h: barH };
+    } else {
+      const barH = 72;
+      cs = Math.min((W - 24) / (COLS + .8), (H - barH - 16) / ROWS);
+      gx = (W - cs * (COLS + .8)) / 2 + cs * .7; gy = barH + 10 + (H - barH - 14 - cs * ROWS) / 2;
+      bar = { x: 112, y: 6, w: W - 118, h: barH };
+    }
+  }
+  addEventListener('resize', resize); resize();
+  // c = position along the lane (0 = your side, 8 = far side), r = lane
+  function pos(r, c) { return port ? [gx + (r + .5) * cs, gy + (COLS - c - .5) * cs] : [gx + (c + .5) * cs, gy + (r + .5) * cs]; }
+  const FWD = () => port ? [0, -1] : [1, 0];            // direction your plants shoot
+  function cellAt(sx, sy) {
+    let r, c;
+    if (port) { r = Math.floor((sx - gx) / cs); c = COLS - 1 - Math.floor((sy - gy) / cs); }
+    else { c = Math.floor((sx - gx) / cs); r = Math.floor((sy - gy) / cs); }
+    return r >= 0 && r < ROWS && c >= 0 && c < COLS ? [r, c] : null;
+  }
+
+  // ---------- the squad ----------
+  const PLANTS = {
+    bloom: { name: 'Aura Bloom', cost: 50, cd: 7, hp: 300 },
+    drip: { name: 'Drip Shooter', cost: 100, cd: 7, hp: 300 },
+    frost: { name: 'Frost Fit', cost: 175, cd: 9, hp: 300 },
+    wall: { name: 'Rizz Rock', cost: 50, cd: 25, hp: 4000 },
+    mine: { name: 'Mog Mine', cost: 25, cd: 25, hp: 100 },
+  };
+  const ORDER = ['bloom', 'drip', 'frost', 'wall', 'mine'];
+  const NPCS = {
+    npc: { hp: 190, speed: .17, dps: 100 },
+    beanie: { hp: 480, speed: .17, dps: 100 },
+    chaser: { hp: 260, speed: .36, dps: 100 },
+    yapper: { hp: 1100, speed: .12, dps: 200 },
+  };
+  const DEATH_LINES = ['-1000 aura', 'NPC behaviour', 'aura: 0', 'no rizz', 'mogged', 'L', 'cooked'];
+
+  let state = 'menu', aura, plants, npcs, shots, orbs, texts, shields, cooldown, sel, t, spawnList, spawned, nextSky, puffs, flash;
+  function makeLevel() {
+    const list = [];
+    let time = 22;
+    const pick = i => i < 4 ? 'npc' : Math.random() < Math.min(.45, i / 40) ? (Math.random() < .5 ? 'beanie' : 'chaser') : (i > 14 && Math.random() < .12 ? 'yapper' : 'npc');
+    for (let i = 0; i < 22; i++) { list.push({ time, type: pick(i) }); time += Math.max(3.2, 10 - i * .35); }
+    // a mid-level wave and a huge final wave
+    const midT = list[11].time + 1; for (let i = 0; i < 5; i++) list.push({ time: midT + i * 1.1, type: i % 3 ? 'npc' : 'beanie', wave: i === 0 && 'A HUGE WAVE IS COMING' });
+    const endT = time + 8; for (let i = 0; i < 10; i++) list.push({ time: endT + i * 1.5, type: i === 9 ? 'yapper' : ['npc', 'beanie', 'chaser'][i % 3], wave: i === 0 && 'FINAL WAVE' });
+    return list.sort((a, b) => a.time - b.time);
+  }
+  function start() {
+    aura = 200; plants = {}; npcs = []; shots = []; orbs = []; texts = []; puffs = [];
+    shields = Array.from({ length: ROWS }, () => ({ used: false, c: -.75, moving: false }));
+    cooldown = Object.fromEntries(ORDER.map(k => [k, k === 'bloom' ? 0 : k === 'drip' ? 0 : 6]));
+    sel = null; t = 0; spawnList = makeLevel(); spawned = 0; nextSky = 6; flash = null;
+    state = 'play'; document.getElementById('menu').style.display = 'none';
+  }
+
+  // ---------- game logic ----------
+  const key = (r, c) => r + ',' + c;
+  function place(r, c) {
+    if (sel === 'shovel') { if (plants[key(r, c)]) { delete plants[key(r, c)]; pop(r, c, '#ccc'); } sel = null; return; }
+    const P = PLANTS[sel];
+    if (!P || plants[key(r, c)] || aura < P.cost || cooldown[sel] > 0) return;
+    aura -= P.cost; cooldown[sel] = P.cd;
+    plants[key(r, c)] = { type: sel, r, c, hp: P.hp, max: P.hp, timer: sel === 'bloom' ? 5 : sel === 'mine' ? 12 : .5, born: t, hurt: 0 };
+    pop(r, c, '#ffe17a'); float(r, c, '+aura', '#ffe17a');
+    sel = null;
+  }
+  function pop(r, c, color) { for (let i = 0; i < 10; i++) { const a = Math.random() * 7; puffs.push({ r, c, dx: Math.cos(a), dy: Math.sin(a), t: 0, color }); } }
+  function float(r, c, text, color) { texts.push({ r, c, text, color, t: 0 }); }
+  function dropOrb(r, c, value, sky) {
+    const [x, y] = pos(r, c);
+    orbs.push({ x: x + (Math.random() - .5) * cs * .4, y: sky ? -20 : y, ty: y + (Math.random() - .2) * cs * .3, value, t: 0, sky });
+  }
+  function hurtNpc(n, dmg, slow) {
+    n.hp -= dmg; n.hit = .12; if (slow) n.slow = 3;
+    if (n.hp <= 0 && !n.dead) { n.dead = true; float(n.r, n.c, DEATH_LINES[Math.floor(Math.random() * DEATH_LINES.length)], '#ff9be6'); pop(n.r, n.c, '#b48cff'); }
+  }
+  function update(dt) {
+    for (const p of puffs) p.t += dt; puffs = puffs.filter(p => p.t < .5);
+    for (const x of texts) x.t += dt; texts = texts.filter(x => x.t < 1.3);
+    for (const o of orbs) { o.t += dt; if (o.y < o.ty) o.y = Math.min(o.ty, o.y + (o.sky ? 60 : 200) * dt); if (o.collect) { o.y += (-40 - o.y) * Math.min(1, dt * 6); o.x += ((port ? 40 : bar.x + 40) - o.x) * Math.min(1, dt * 6); } }
+    orbs = orbs.filter(o => { if (o.collect && o.y < 0) return false; if (!o.collect && o.t > 10) { collect(o); } return true; });
+    if (flash) { flash.t += dt; if (flash.t > 3) flash = null; }
+    if (state !== 'play') return;
+    t += dt;
+    for (const k in cooldown) cooldown[k] = Math.max(0, cooldown[k] - dt);
+    // free aura from the sky
+    if (t > nextSky) { nextSky = t + 8 + Math.random() * 3; dropOrb(Math.floor(Math.random() * ROWS), 1 + Math.random() * 6, 25, true); }
+    // spawn npcs
+    while (spawned < spawnList.length && spawnList[spawned].time <= t) {
+      const s = spawnList[spawned++], N = NPCS[s.type];
+      npcs.push({ type: s.type, r: Math.floor(Math.random() * ROWS), c: COLS + .3, hp: N.hp, max: N.hp, slow: 0, hit: 0, walk: Math.random() * 6, eating: false });
+      if (s.wave) flash = { text: s.wave, t: 0 };
+    }
+    // plants
+    for (const k in plants) {
+      const p = plants[k]; p.timer -= dt; p.hurt = Math.max(0, p.hurt - dt);
+      if (p.type === 'bloom' && p.timer <= 0) { p.timer = 8; dropOrb(p.r, p.c, 25, false); }
+      if ((p.type === 'drip' || p.type === 'frost') && p.timer <= 0 && npcs.some(n => n.r === p.r && n.c > p.c && n.c < COLS + .1 && !n.dead)) {
+        p.timer = 1.2; p.recoil = .15; shots.push({ r: p.r, c: p.c + .3, frost: p.type === 'frost' });
+      }
+      if (p.recoil) p.recoil = Math.max(0, p.recoil - dt);
+      if (p.type === 'mine' && p.timer <= 0 && !p.armed) { p.armed = true; pop(p.r, p.c, '#c58cff'); }
+    }
+    // shots
+    for (const s of shots) {
+      s.c += 5 * dt;
+      const target = npcs.filter(n => n.r === s.r && !n.dead && Math.abs(n.c - s.c) < .28).sort((a, b) => a.c - b.c)[0];
+      if (target) { hurtNpc(target, 25, s.frost); s.done = true; puffs.push({ r: s.r, c: s.c, dx: 0, dy: 0, t: .2, color: s.frost ? '#9be7ff' : '#ffe17a' }); }
+      if (s.c > COLS + .6) s.done = true;
+    }
+    shots = shots.filter(s => !s.done);
+    // npcs walk, munch plants, or reach your side
+    for (const n of npcs) {
+      if (n.dead) { n.fade = (n.fade || 0) + dt; continue; }
+      n.hit = Math.max(0, n.hit - dt); n.slow = Math.max(0, n.slow - dt);
+      const N = NPCS[n.type], k = n.slow > 0 ? .5 : 1;
+      const col = Math.round(n.c - .3), p = plants[key(n.r, col)];
+      if (p && n.c - col < .65 && n.c - col > -.3) {
+        if (p.type === 'mine' && p.armed) {
+          for (const m of npcs) if (m.r === n.r && Math.abs(m.c - col) < 1.2) hurtNpc(m, 1800);
+          delete plants[key(n.r, col)]; boom(n.r, col); continue;
+        }
+        n.eating = true; p.hp -= N.dps * k * dt; p.hurt = .1;
+        if (p.hp <= 0) { delete plants[key(n.r, col)]; float(n.r, col, 'aura stolen', '#ff8a80'); }
+      } else { n.eating = false; n.c -= N.speed * k * dt; n.walk += dt * 6 * k; }
+      if (n.c < -.35) {
+        const sh = shields[n.r];
+        if (!sh.used) { sh.used = true; sh.moving = true; flash = { text: 'AURA SHIELD!', t: 1.6 }; }
+        else if (!sh.moving) return lose();
+      }
+    }
+    for (const sh of shields) if (sh.moving) {
+      sh.c += 6 * dt;
+      for (const n of npcs) if (n.r === shields.indexOf(sh) && !n.dead && n.c < sh.c + .3) hurtNpc(n, 99999);
+      if (sh.c > COLS + 1) sh.moving = false;
+    }
+    npcs = npcs.filter(n => !n.dead || n.fade < .6);
+    if (spawned === spawnList.length && npcs.every(n => n.dead)) win();
+  }
+  function boom(r, c) { for (let i = 0; i < 26; i++) { const a = Math.random() * 7; puffs.push({ r, c, dx: Math.cos(a) * 2, dy: Math.sin(a) * 2, t: 0, color: i % 2 ? '#c58cff' : '#ffe17a' }); } float(r, c, 'MOGGED', '#ffe17a'); if (navigator.vibrate) navigator.vibrate(80); }
+  function collect(o) { if (o.collect) return; o.collect = true; aura += o.value; if (navigator.vibrate) navigator.vibrate(8); }
+  function end(title, sub) {
+    state = 'over';
+    document.getElementById('title').textContent = title; document.getElementById('sub').textContent = sub;
+    document.getElementById('how').style.display = 'none'; document.getElementById('go').textContent = 'FARM AGAIN';
+    setTimeout(() => document.getElementById('menu').style.display = 'flex', 700);
+  }
+  const win = () => end('✨ MAX AURA ✨', 'You held the farm. The NPCs never stood a chance. +∞ aura.');
+  const lose = () => end('AURA DRAINED 💀', 'The NPCs got through. -1000 aura. Run it back?');
+
+  // ---------- input ----------
+  function cardRects() {
+    const n = ORDER.length + 1, cw = port ? 62 : 82, gap = 6;
+    const counterW = port ? 62 : 86, avail = bar.w - counterW - gap * (n + 1);
+    const w = Math.min(port ? 64 : 76, avail / n);
+    const rects = ORDER.concat('shovel').map((k, i) => ({ k, x: bar.x + counterW + gap + i * (w + gap), y: bar.y + 6, w, h: bar.h - 12 }));
+    return { counter: { x: bar.x + 4, y: bar.y + 6, w: counterW - 6, h: bar.h - 12 }, rects };
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (state !== 'play') return;
+    const x = e.clientX, y = e.clientY;
+    for (const o of orbs) if (!o.collect && Math.hypot(o.x - x, o.y - y) < cs * .55) { collect(o); return; }
+    for (const r of cardRects().rects) if (x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) { sel = sel === r.k ? null : r.k; return; }
+    const cell = cellAt(x, y);
+    if (cell && sel) place(cell[0], cell[1]);
+  });
+
+  // ---------- art (all original) ----------
+  function glowCircle(x, y, r, color, blur) { ctx.shadowColor = color; ctx.shadowBlur = blur; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
+  function shades(x, y, s) {
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.roundRect(x - s * .19, y - s * .045, s * .16, s * .085, s * .03); ctx.roundRect(x + s * .03, y - s * .045, s * .16, s * .085, s * .03); ctx.fill();
+    ctx.fillRect(x - s * .04, y - s * .03, s * .08, s * .02);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(x - s * .16, y - s * .03, s * .04, s * .015); ctx.fillRect(x + s * .06, y - s * .03, s * .04, s * .015);
+  }
+  function stem(x, y, s) {
+    ctx.strokeStyle = '#2e9e4f'; ctx.lineWidth = s * .07; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y + s * .38); ctx.lineTo(x, y + s * .05); ctx.stroke();
+    ctx.fillStyle = '#3cc463';
+    ctx.beginPath(); ctx.ellipse(x - s * .13, y + s * .3, s * .14, s * .06, -.5, 0, 7); ctx.ellipse(x + s * .13, y + s * .3, s * .14, s * .06, .5, 0, 7); ctx.fill();
+  }
+  function drawPlant(p, x, y, s) {
+    const bob = Math.sin(t * 3 + p.r + p.c) * s * .02, hurt = p.hurt > 0;
+    y += bob;
+    if (p.type === 'bloom') {
+      const pulse = .5 + .5 * Math.sin(t * 4 + p.c);
+      glowCircle(x, y - s * .08, s * (.3 + pulse * .04), 'rgba(255,225,122,.25)', 25);
+      stem(x, y, s);
+      ctx.fillStyle = '#ffcf3f';
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + t * .5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * s * .19, y - s * .1 + Math.sin(a) * s * .19, s * .09, s * .05, a, 0, 7); ctx.fill(); }
+      ctx.fillStyle = hurt ? '#fff' : '#c77d2e'; ctx.beginPath(); ctx.arc(x, y - s * .1, s * .15, 0, 7); ctx.fill();
+      shades(x, y - s * .12, s);
+      ctx.strokeStyle = '#5a2e0e'; ctx.lineWidth = s * .025; ctx.beginPath(); ctx.arc(x + s * .02, y - s * .04, s * .05, .2, 1.4); ctx.stroke();
+    } else if (p.type === 'drip' || p.type === 'frost') {
+      const fr = p.type === 'frost', [fx, fy] = FWD(), rc = (p.recoil || 0) * s * .4;
+      stem(x, y, s);
+      const hx = x - fx * rc, hy = y - s * .1 - fy * rc;
+      // shooting tube points at the npcs
+      ctx.fillStyle = fr ? '#4fb3e8' : '#43c45f';
+      ctx.save(); ctx.translate(hx, hy); ctx.rotate(Math.atan2(fy, fx));
+      ctx.beginPath(); ctx.roundRect(s * .08, -s * .07, s * .2, s * .14, s * .04); ctx.fill();
+      ctx.fillStyle = '#1b3d22'; ctx.beginPath(); ctx.ellipse(s * .28, 0, s * .03, s * .06, 0, 0, 7); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = hurt ? '#fff' : fr ? '#6cc8f5' : '#55d672'; ctx.beginPath(); ctx.arc(hx, hy, s * .18, 0, 7); ctx.fill();
+      if (fr) { ctx.fillStyle = '#e6f7ff'; for (let i = 0; i < 3; i++) { const a = -2.2 + i * .7; ctx.beginPath(); ctx.moveTo(hx + Math.cos(a) * s * .14, hy + Math.sin(a) * s * .14); ctx.lineTo(hx + Math.cos(a) * s * .26, hy + Math.sin(a) * s * .26); ctx.lineTo(hx + Math.cos(a + .25) * s * .15, hy + Math.sin(a + .25) * s * .15); ctx.fill(); } }
+      else { ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.arc(hx, hy - s * .05, s * .17, Math.PI * 1.05, Math.PI * 1.95); ctx.fill(); ctx.fillRect(hx - s * .26, hy - s * .1, s * .14, s * .04); }
+      shades(hx, hy - s * .02, s * .9);
+      // gold chain
+      ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = s * .025; ctx.beginPath(); ctx.arc(hx, hy + s * .1, s * .1, .3, Math.PI - .3); ctx.stroke();
+      glowCircle(hx, hy + s * .2, s * .03, '#ffd54f', 8);
+    } else if (p.type === 'wall') {
+      const dmg = 1 - p.hp / p.max;
+      ctx.fillStyle = hurt ? '#ddd' : '#8a8fa3';
+      ctx.beginPath(); ctx.ellipse(x, y + s * .02, s * .34, s * .36, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.ellipse(x - s * .1, y - s * .15, s * .12, s * .08, -.4, 0, 7); ctx.fill();
+      shades(x, y - s * .08, s * 1.1);
+      ctx.strokeStyle = '#3d3f4a'; ctx.lineWidth = s * .03; ctx.beginPath(); ctx.moveTo(x - s * .06, y + s * .1); ctx.quadraticCurveTo(x + s * .06, y + s * .15, x + s * .12, y + s * .06); ctx.stroke();
+      if (dmg > .33) { ctx.strokeStyle = '#3d3f4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + s * .2, y - s * .25); ctx.lineTo(x + s * .1, y - s * .1); ctx.lineTo(x + s * .18, y); ctx.stroke(); }
+      if (dmg > .66) { ctx.beginPath(); ctx.moveTo(x - s * .25, y + s * .1); ctx.lineTo(x - s * .12, y + s * .22); ctx.stroke(); }
+    } else if (p.type === 'mine') {
+      ctx.fillStyle = '#4a2d1a'; ctx.beginPath(); ctx.ellipse(x, y + s * .2, s * .26, s * .09, 0, 0, 7); ctx.fill();
+      if (p.armed) {
+        glowCircle(x, y + s * .1, s * .17, '#9d5cff', 18);
+        ctx.fillStyle = '#d7b8ff'; ctx.beginPath(); ctx.arc(x - s * .05, y + s * .05, s * .05, 0, 7); ctx.fill();
+        if (Math.floor(t * 3) % 2) glowCircle(x, y - s * .06, s * .035, '#ff5252', 10);
+        shades(x, y + s * .1, s * .7);
+      } else { ctx.fillStyle = '#6b4a8f'; ctx.beginPath(); ctx.arc(x, y + s * .17, s * .1, Math.PI, 0); ctx.fill(); }
+    }
+    if (p.hp < p.max && p.type !== 'wall') { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * .25, y + s * .42, s * .5, 4); ctx.fillStyle = '#7CFC8A'; ctx.fillRect(x - s * .25, y + s * .42, s * .5 * p.hp / p.max, 4); }
+  }
+  function drawNpc(n, x, y, s) {
+    const walk = n.eating ? Math.sin(t * 14) * .3 : Math.sin(n.walk), alpha = n.dead ? 1 - n.fade / .6 : 1;
+    ctx.globalAlpha = Math.max(0, alpha);
+    const big = n.type === 'yapper' ? 1.25 : 1, k = s * big;
+    const [fx, fy] = FWD(), dir = port ? 0 : -1;  // facing: left in landscape, towards you in portrait
+    y -= k * .05;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + k * .42, k * .22, k * .06, 0, 0, 7); ctx.fill();
+    // legs
+    ctx.strokeStyle = '#3a3f5c'; ctx.lineWidth = k * .07; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - k * .06, y + k * .1); ctx.lineTo(x - k * .06 + walk * k * .08, y + k * .4);
+    ctx.moveTo(x + k * .06, y + k * .1); ctx.lineTo(x + k * .06 - walk * k * .08, y + k * .4); ctx.stroke();
+    // body (grey hoodie)
+    const shirt = n.hit > 0 ? '#fff' : n.slow > 0 ? '#9fd6f0' : { npc: '#8d93a8', beanie: '#7d8aa0', chaser: '#c9a06b', yapper: '#7b6d8d' }[n.type];
+    ctx.fillStyle = shirt; ctx.beginPath(); ctx.roundRect(x - k * .15, y - k * .15, k * .3, k * .3, k * .06); ctx.fill();
+    // arms reaching forward
+    ctx.strokeStyle = shirt; ctx.lineWidth = k * .06;
+    const ax = dir * k * .28, ay = port ? k * .12 : 0;
+    ctx.beginPath(); ctx.moveTo(x - k * .1, y - k * .08); ctx.lineTo(x - k * .1 + ax + (port ? -k * .05 : 0), y - k * .04 + ay + walk * k * .03);
+    ctx.moveTo(x + k * .1, y - k * .08); ctx.lineTo(x + k * .1 + ax + (port ? k * .05 : 0), y - k * .04 + ay - walk * k * .03); ctx.stroke();
+    if (n.type === 'chaser') { ctx.fillStyle = '#222'; ctx.fillRect(x + ax - k * .04, y - k * .12, k * .07, k * .11); glowCircle(x + ax - k * .005, y - k * .1, k * .015, '#9be7ff', 6); }
+    // head
+    ctx.fillStyle = n.hit > 0 ? '#fff' : '#b9c3a8'; ctx.beginPath(); ctx.arc(x, y - k * .27, k * .14, 0, 7); ctx.fill();
+    // blank npc face
+    ctx.fillStyle = '#2b2f3a';
+    ctx.fillRect(x - k * .06 + dir * k * .03, y - k * .29, k * .03, k * .03); ctx.fillRect(x + k * .03 + dir * k * .03, y - k * .29, k * .03, k * .03);
+    ctx.fillRect(x - k * .04 + dir * k * .03, y - k * .21, k * .08, k * .015);
+    if (n.type === 'beanie') { ctx.fillStyle = '#e94f6b'; ctx.beginPath(); ctx.arc(x, y - k * .3, k * .145, Math.PI, 0); ctx.fill(); ctx.fillRect(x - k * .15, y - k * .32, k * .3, k * .05); glowCircle(x, y - k * .45, k * .035, '#fff', 0); }
+    if (n.type === 'yapper') {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(x - k * .02, y - k * .62, k * .3, k * .16, k * .06); ctx.fill();
+      ctx.fillStyle = '#333'; for (let i = 0; i < 3; i++) if (Math.floor(t * 4 + i) % 3) { ctx.beginPath(); ctx.arc(x + k * (.05 + i * .08), y - k * .54, k * .02, 0, 7); ctx.fill(); }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.font = `800 ${Math.max(7, k * .09)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('NPC', x, y);
+    if (!n.dead && n.hp < n.max) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - k * .2, y - k * .47, k * .4, 3); ctx.fillStyle = '#ff6b9b'; ctx.fillRect(x - k * .2, y - k * .47, k * .4 * Math.max(0, n.hp) / n.max, 3); }
+    ctx.globalAlpha = 1;
+  }
+  function drawField() {
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#2a1458'); bg.addColorStop(.5, '#1a0f33'); bg.addColorStop(1, '#0f2a3a');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // tiles
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const [x, y] = pos(r, c);
+      ctx.fillStyle = (r + c) % 2 ? '#3b8a4e' : '#46a05b';
+      ctx.fillRect(x - cs / 2, y - cs / 2, cs + .5, cs + .5);
+    }
+    // aura haze drifting over the lawn
+    for (let i = 0; i < 6; i++) {
+      const px = (Math.sin(t * .2 + i * 1.7) * .5 + .5) * W, py = (Math.cos(t * .17 + i * 2.3) * .5 + .5) * H;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, cs * 2.5); g.addColorStop(0, i % 2 ? 'rgba(255,155,230,.12)' : 'rgba(155,231,255,.1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(px - cs * 2.5, py - cs * 2.5, cs * 5, cs * 5);
+    }
+    // your side strip with aura shields
+    for (let r = 0; r < ROWS; r++) {
+      const sh = shields[r]; if (!sh || (sh.used && !sh.moving)) continue;
+      const [x, y] = pos(r, sh.c);
+      glowCircle(x, y, cs * .2, '#ffe17a', 22);
+      ctx.fillStyle = '#fff8d6'; ctx.font = `800 ${cs * .18}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✦', x, y + 1);
+    }
+  }
+  function drawCardIcon(k, x, y, s) {
+    if (k === 'shovel') { ctx.strokeStyle = '#d7ccc8'; ctx.lineWidth = s * .08; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - s * .2, y + s * .2); ctx.lineTo(x + s * .12, y - s * .12); ctx.stroke(); ctx.fillStyle = '#b0bec5'; ctx.beginPath(); ctx.ellipse(x + s * .18, y - s * .18, s * .12, s * .08, -.8, 0, 7); ctx.fill(); return; }
+    drawPlant({ type: k, r: 0, c: 0, hp: 1, max: 1, armed: true }, x, y, s);
+  }
+  function drawHUD() {
+    const { counter, rects } = cardRects();
+    ctx.fillStyle = 'rgba(15,6,35,.78)'; ctx.beginPath(); ctx.roundRect(bar.x, bar.y, bar.w, bar.h, 16); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,120,.35)'; ctx.lineWidth = 1; ctx.stroke();
+    // aura counter
+    glowCircle(counter.x + counter.w / 2, counter.y + counter.h * .34, counter.h * .17, '#ffe17a', 16);
+    ctx.fillStyle = '#fff'; ctx.font = `800 ${port ? 15 : 18}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(aura, counter.x + counter.w / 2, counter.y + counter.h * .78);
+    ctx.fillStyle = '#5a3a00'; ctx.font = `800 ${counter.h * .16}px system-ui, sans-serif`; ctx.fillText('✦', counter.x + counter.w / 2, counter.y + counter.h * .35);
+    for (const r of rects) {
+      const P = PLANTS[r.k], can = !P || (aura >= P.cost && cooldown[r.k] <= 0), on = sel === r.k;
+      ctx.fillStyle = on ? 'rgba(255,225,122,.35)' : 'rgba(255,255,255,.08)';
+      ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 10); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffe17a'; ctx.lineWidth = 2; ctx.stroke(); }
+      ctx.save(); ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 10); ctx.clip();
+      ctx.globalAlpha = can ? 1 : .4;
+      drawCardIcon(r.k, r.x + r.w / 2, r.y + r.h * .42, Math.min(r.w, r.h) * .78);
+      ctx.globalAlpha = 1;
+      if (P && cooldown[r.k] > 0) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(r.x, r.y, r.w, r.h * cooldown[r.k] / P.cd); }
+      ctx.restore();
+      ctx.fillStyle = P && aura < P.cost ? '#ff8a80' : '#fff'; ctx.font = '800 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(P ? P.cost : 'dig', r.x + r.w / 2, r.y + r.h - 8);
+    }
+    // level progress
+    const pw = port ? W * .42 : Math.min(150, W * .16), px = W - pw - 12, py = port ? 22 : H - 18;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.roundRect(px, py - 6, pw, 12, 6); ctx.fill();
+    const k = Math.min(1, spawned / spawnList.length);
+    ctx.fillStyle = '#ff8ad8'; ctx.beginPath(); ctx.roundRect(px, py - 6, Math.max(12, pw * k), 12, 6); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '700 10px system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('NPC WAVES', px - 6, py + 1);
+    if (sel) {
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '700 13px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(sel === 'shovel' ? 'Tap a plant to dig it up' : `Tap a tile to plant ${PLANTS[sel].name}`, W / 2, port ? bar.y - 12 : bar.y + bar.h + 14);
+    }
+  }
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawField();
+    if (state === 'menu') return;
+    // highlight the tile you can plant on
+    // plants then npcs, nearer rows last so they overlap nicely
+    const items = [];
+    for (const k in plants) { const p = plants[k], [x, y] = pos(p.r, p.c); items.push([y, () => drawPlant(p, x, y, cs)]); }
+    for (const n of npcs) { const [x, y] = pos(n.r, n.c); items.push([y + .1, () => drawNpc(n, x, y, cs)]); }
+    items.sort((a, b) => a[0] - b[0]).forEach(i => i[1]());
+    for (const s of shots) { const [x, y] = pos(s.r, s.c); glowCircle(x, y - cs * .1, cs * .07, s.frost ? '#9be7ff' : '#ffe17a', 14); }
+    for (const p of puffs) { const [x, y] = pos(p.r, p.c), k = p.t / .5; ctx.globalAlpha = 1 - k; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x + p.dx * k * cs * .5, y + p.dy * k * cs * .5 - cs * .1, cs * .05 * (1 - k) + 1, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    for (const o of orbs) {
+      const pulse = 1 + Math.sin(o.t * 6) * .08;
+      glowCircle(o.x, o.y, cs * .2 * pulse, 'rgba(255,215,90,.9)', 26);
+      ctx.fillStyle = '#fff6cf'; ctx.beginPath(); ctx.arc(o.x - cs * .05, o.y - cs * .05, cs * .06, 0, 7); ctx.fill();
+      ctx.fillStyle = '#7a4a00'; ctx.font = `800 ${cs * .14}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✦', o.x, o.y + 1);
+    }
+    for (const x of texts) {
+      const [px, py] = pos(x.r, x.c); ctx.globalAlpha = 1 - x.t / 1.3;
+      ctx.font = `900 ${Math.max(12, cs * .2)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(x.text, px, py - cs * .45 - x.t * cs * .5);
+      ctx.fillStyle = x.color; ctx.fillText(x.text, px, py - cs * .45 - x.t * cs * .5);
+    }
+    ctx.globalAlpha = 1;
+    drawHUD();
+    if (flash) {
+      ctx.globalAlpha = Math.min(1, (3 - flash.t) * 2);
+      ctx.font = `900 ${Math.round(Math.min(W, H) * .075)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 7; ctx.strokeStyle = '#2a0f3f'; ctx.strokeText(flash.text, W / 2, H / 2);
+      ctx.fillStyle = '#ff8ad8'; ctx.shadowColor = '#ff8ad8'; ctx.shadowBlur = 20; ctx.fillText(flash.text, W / 2, H / 2); ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
+  }
+  document.getElementById('go').addEventListener('click', start);
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(.05, (now - last) / 1000) || .016; last = now;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+  shields = Array.from({ length: ROWS }, () => ({ used: false, c: -.75 }));
+  puffs = []; texts = []; orbs = []; npcs = []; plants = {}; shots = []; t = 0;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

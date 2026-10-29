@@ -73,4 +73,12 @@ window.GAMES = [
     color: ['#c62828', '#4a0d0d'],
     emoji: '🎥',
   },
+  {
+    slug: 'aura-farm',
+    title: 'Aura Farm Defense',
+    description: 'NPCs are coming to drain your aura. Plant a drippy squad in their lanes, farm aura and hold the line.',
+    tags: ['Strategy', '1 player'],
+    color: ['#7e57c2', '#2a1458'],
+    emoji: '✨',
+  },
 ];
