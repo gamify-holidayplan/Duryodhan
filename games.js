@@ -49,4 +49,12 @@ window.GAMES = [
     color: ['#4ec0ca', '#2a8a96'],
     emoji: '🐤',
   },
+  {
+    slug: 'texas-holdem',
+    title: "Hold'em Poker",
+    description: 'No-limit Texas Hold\'em against 5 computer players. Pick your table, buy in, post the blinds and play for the pot.',
+    tags: ['Cards', '1 player'],
+    color: ['#1b7a43', '#0b2416'],
+    emoji: '♠️',
+  },
 ];

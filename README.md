@@ -26,3 +26,4 @@ games/<slug>/index.html one folder per game
 - **Stick Cricket** (`/games/stick-cricket/`): chase a target in 3 overs with 3 wickets. Tap to hit, swipe up to loft, swipe sideways to aim.
 - **Neon Ping Pong** (`/games/ping-pong/`): table tennis vs the computer with spin, smashes and sound. Easy / Normal / Pro.
 - **Flappy Wings** (`/games/flappy-wings/`): tap to flap through the gaps between pipes. Gaps get tighter as your score climbs.
+- **Hold'em Poker** (`/games/texas-holdem/`): no-limit Texas Hold'em vs 5 bots. 4 stake levels, buy-ins, blinds, side pots, saved bankroll with a daily bonus.
