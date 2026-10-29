@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#7cb342">
+<title>Crossy Roads</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; background: #7cb342; font-family: system-ui, -apple-system, sans-serif; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #home { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); z-index: 5;
+          padding: 7px 13px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(20,17,43,.55);
+            padding: 16px; overflow-y: auto; touch-action: pan-y; }
+  .panel { background: #fff; color: #222; border-radius: 22px; padding: 22px 18px; text-align: center; width: min(560px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.35); margin: auto; }
+  .panel h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: .5px; }
+  .muted { color: #777; font-size: 14px; }
+  .chars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 16px 0 6px; }
+  .char { border: 3px solid #eee; border-radius: 14px; padding: 4px 2px 6px; background: #f6f8f3; font-size: 12px; font-weight: 700; color: #444; cursor: pointer; }
+  .char canvas { width: 100%; aspect-ratio: 1; display: block; }
+  .char.sel { border-color: #ffb300; background: #fff8e1; }
+  .big { font-size: 64px; font-weight: 800; line-height: 1; margin: 8px 0 2px; }
+  .btn { display: block; width: 100%; margin-top: 12px; padding: 13px; border-radius: 30px; font-size: 18px; font-weight: 800; border: 0; text-decoration: none; cursor: pointer; }
+  .go { background: #ffca28; color: #222; }
+  .alt { background: #eee; color: #333; font-size: 16px; }
+  @media (max-height: 480px) { .panel { padding: 14px; } .panel h1 { font-size: 24px; } .chars { margin: 8px 0 2px; } .btn { padding: 10px; margin-top: 8px; } .big { font-size: 44px; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="home" href="/">← All games</a>
+
+<div class="screen" id="menu"><div class="panel">
+  <h1>Crossy Roads</h1>
+  <div class="muted">Pick your character</div>
+  <div class="chars" id="chars"></div>
+  <div class="muted" id="hint">Tap to hop forward · swipe to move left, right or back</div>
+  <button class="btn go" id="play">PLAY</button>
+</div></div>
+
+<div class="screen" id="over" style="display:none"><div class="panel" style="width:min(340px,100%)">
+  <h1 id="overTitle">Game over</h1>
+  <div class="big" id="overScore">0</div>
+  <div class="muted" id="overBest"></div>
+  <button class="btn go" id="again">Play again</button>
+  <button class="btn alt" id="change">Change character</button>
+  <a class="btn alt" href="/">All games</a>
+</div></div>
+
+<script>
+(() => {
+  const COLS = 9, SPAN = COLS + 8, LEFT = -4; // playable columns 0..8; moving things loop over [LEFT, LEFT+SPAN)
+  const K = 0.85, RD = 0.72;                  // screen height of one tile of height, and of one row of depth (tilted camera)
+  const CS = 1.25;                            // characters are drawn a bit larger than one tile unit
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let W, H, T, R, anchorY;
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    T = Math.round(Math.min(W / 9.5, H / 7)); R = T * RD; anchorY = H * 0.72;
+  }
+  addEventListener('resize', resize); resize();
+
+  // ---------- colour helpers ----------
+  const shadeCache = {};
+  function shade(hex, k) {
+    const key = hex + k; if (shadeCache[key]) return shadeCache[key];
+    const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * k))));
+    return shadeCache[key] = '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+  // a block: centred at screen x cx, front edge on the ground at frontY; sizes in tiles.
+  // back pushes it away from the camera, z lifts it, s squashes heights (for the squash death).
+  function box(g, t, cx, frontY, w, d, z, h, color, back = 0, s = 1) {
+    const left = cx - w * t / 2, fb = frontY - back * t * RD - z * t * K * s, ft = fb - h * t * K * s;
+    g.fillStyle = shade(color, 1.2); g.fillRect(left, ft - d * t * RD, w * t, d * t * RD);
+    g.fillStyle = color; g.fillRect(left, ft, w * t, fb - ft);
+  }
+
+  // ---------- the five characters ----------
+  const CHARS = [
+    { id: 'chicken', name: 'Chicken', draw(g, t, x, y, s) {
+        box(g, t, x - .12, y, .07, .07, 0, .14, '#ff9800', 0, s); box(g, t, x + .12, y, .07, .07, 0, .14, '#ff9800', 0, s);
+        box(g, t, x, y, .6, .5, .12, .62, '#fafafa', 0, s);
+        box(g, t, x, y, .14, .22, .74, .14, '#e53935', .14, s);
+        box(g, t, x, y, .16, .02, .42, .12, '#ff9800', 0, s);
+        box(g, t, x, y, .1, .02, .3, .1, '#e53935', 0, s);
+        box(g, t, x - .15, y, .08, .02, .56, .08, '#212121', 0, s); box(g, t, x + .15, y, .08, .02, .56, .08, '#212121', 0, s);
+      } },
+    { id: 'frog', name: 'Frog', draw(g, t, x, y, s) {
+        box(g, t, x - .26, y, .16, .1, 0, .1, '#2e7d32', 0, s); box(g, t, x + .26, y, .16, .1, 0, .1, '#2e7d32', 0, s);
+        box(g, t, x, y, .7, .6, .06, .38, '#66bb6a', 0, s);
+        box(g, t, x - .2, y, .2, .2, .44, .16, '#66bb6a', .1, s); box(g, t, x + .2, y, .2, .2, .44, .16, '#66bb6a', .1, s);
+        box(g, t, x - .2, y, .12, .02, .48, .1, '#fff', .1, s); box(g, t, x + .2, y, .12, .02, .48, .1, '#fff', .1, s);
+        box(g, t, x - .18, y, .06, .02, .5, .06, '#111', .1, s); box(g, t, x + .22, y, .06, .02, .5, .06, '#111', .1, s);
+        box(g, t, x, y, .36, .02, .2, .04, '#1b5e20', 0, s);
+      } },
+    { id: 'penguin', name: 'Penguin', draw(g, t, x, y, s) {
+        box(g, t, x - .12, y, .12, .1, 0, .06, '#ff9800', 0, s); box(g, t, x + .12, y, .12, .1, 0, .06, '#ff9800', 0, s);
+        box(g, t, x, y, .56, .46, .06, .82, '#263238', 0, s);
+        box(g, t, x, y, .36, .02, .1, .52, '#fafafa', 0, s);
+        box(g, t, x, y, .14, .03, .6, .08, '#ff9800', 0, s);
+        box(g, t, x - .13, y, .1, .02, .72, .08, '#fff', 0, s); box(g, t, x + .13, y, .1, .02, .72, .08, '#fff', 0, s);
+        box(g, t, x - .13, y, .05, .02, .73, .05, '#111', 0, s); box(g, t, x + .13, y, .05, .02, .73, .05, '#111', 0, s);
+        box(g, t, x - .33, y, .1, .3, .2, .4, '#263238', .05, s); box(g, t, x + .33, y, .1, .3, .2, .4, '#263238', .05, s);
+      } },
+    { id: 'robot', name: 'Robot', draw(g, t, x, y, s) {
+        box(g, t, x - .14, y, .12, .2, 0, .2, '#455a64', 0, s); box(g, t, x + .14, y, .12, .2, 0, .2, '#455a64', 0, s);
+        box(g, t, x, y, .58, .44, .2, .4, '#90a4ae', 0, s);
+        box(g, t, x, y, .22, .02, .3, .16, '#ffca28', 0, s);
+        box(g, t, x, y, .46, .38, .62, .32, '#b0bec5', .03, s);
+        box(g, t, x - .11, y, .1, .02, .72, .08, '#00e5ff', .03, s); box(g, t, x + .11, y, .1, .02, .72, .08, '#00e5ff', .03, s);
+        box(g, t, x, y, .05, .05, .94, .2, '#607d8b', .18, s); box(g, t, x, y, .11, .1, 1.14, .1, '#f44336', .16, s);
+      } },
+    { id: 'fox', name: 'Fox', draw(g, t, x, y, s) {
+        box(g, t, x + .36, y, .18, .3, .12, .18, '#fb8c00', .2, s); box(g, t, x + .45, y, .08, .3, .12, .18, '#fff', .2, s);
+        box(g, t, x - .14, y, .1, .1, 0, .14, '#3e2723', 0, s); box(g, t, x + .14, y, .1, .1, 0, .14, '#3e2723', 0, s);
+        box(g, t, x, y, .58, .5, .12, .58, '#fb8c00', 0, s);
+        box(g, t, x - .18, y, .14, .12, .7, .2, '#fb8c00', .14, s); box(g, t, x + .18, y, .14, .12, .7, .2, '#fb8c00', .14, s);
+        box(g, t, x, y, .3, .02, .14, .3, '#fff', 0, s);
+        box(g, t, x, y, .08, .03, .4, .07, '#212121', 0, s);
+        box(g, t, x - .14, y, .07, .02, .56, .08, '#212121', 0, s); box(g, t, x + .14, y, .07, .02, .56, .08, '#212121', 0, s);
+      } },
+  ];
+  let charIdx = 0;
+  try { charIdx = Math.max(0, CHARS.findIndex(c => c.id === localStorage.getItem('cr-char'))); } catch (e) {}
+
+  // ---------- lanes ----------
+  let lanes = {}, gen;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const LANE_ROLLS = { grass: [1, 2], road: [1, 4], river: [1, 3], rail: [1, 2] };
+  function resetLanes() { lanes = {}; gen = { row: -6, type: 'grass', left: 10, riverDir: 1 }; }
+  function lane(r) {
+    if (r < -6) return lanes[r] || (lanes[r] = { type: 'grass', items: [], trees: new Set([...Array(COLS).keys()]) }); // solid forest behind the start
+    while (gen.row <= r) makeNext();
+    return lanes[r];
+  }
+  function makeNext() {
+    const r = gen.row++, diff = Math.min(1, Math.max(0, r) / 150);
+    if (gen.left <= 0) {
+      const opts = [['grass', .3], ['road', .38], ['river', r > 6 ? .2 : 0], ['rail', r > 10 ? .12 : 0]].filter(o => o[0] !== gen.type && o[1] > 0);
+      let pick = Math.random() * opts.reduce((a, o) => a + o[1], 0);
+      for (const o of opts) { if ((pick -= o[1]) <= 0) { gen.type = o[0]; break; } }
+      const [lo, hi] = LANE_ROLLS[gen.type];
+      gen.left = lo + Math.floor(Math.random() * (hi - lo + 1 + (gen.type === 'road' && diff > .4 ? 1 : 0)));
+    }
+    gen.left--;
+    const L = { type: gen.type, items: [] };
+    if (L.type === 'grass') {
+      L.trees = new Set();
+      if (r < 0) for (let c = 0; c < COLS; c++) { if (c !== 4 && Math.random() < .5) L.trees.add(c); }
+      else if (r > 2) { const n = Math.floor(rnd(0, 3.6)); for (let i = 0; i < n; i++) { const c = Math.floor(Math.random() * COLS); if (c !== 4) L.trees.add(c); } }
+      L.tall = Math.random() < .5;
+    } else if (L.type === 'road') {
+      L.dir = Math.random() < .5 ? 1 : -1;
+      const truck = Math.random() < .3;
+      L.speed = (truck ? rnd(1, 1.8) : rnd(1.4, 2.8)) * (1 + diff * 1.3);
+      const len = truck ? 2 : 1, colors = ['#e53935', '#1e88e5', '#fdd835', '#8e24aa', '#43a047', '#fb8c00', '#00acc1'];
+      let x = rnd(0, 3);
+      while (x < SPAN - len) { L.items.push({ x: LEFT + x, len, color: colors[Math.floor(Math.random() * colors.length)] }); x += len + rnd(2.6, 5.5); }
+    } else if (L.type === 'river') {
+      L.dir = gen.riverDir = -gen.riverDir;
+      L.speed = rnd(.8, 1.6) * (1 + diff * .6);
+      let x = rnd(0, 1.5);
+      while (x < SPAN - 2) { const len = Math.floor(rnd(2, 4.99)); L.items.push({ x: LEFT + x, len }); x += len + rnd(1.2, 2.6); }
+    } else {
+      L.dir = Math.random() < .5 ? 1 : -1; L.timer = rnd(2, 6); L.train = null;
+    }
+    lanes[r] = L;
+  }
+  function updateLanes(dt, from, to) {
+    for (let r = from; r <= to; r++) {
+      const L = lane(r);
+      if (L.type === 'road' || L.type === 'river') {
+        for (const it of L.items) {
+          it.x += L.dir * L.speed * dt;
+          if (L.dir > 0 && it.x > LEFT + SPAN) it.x -= SPAN + it.len;
+          if (L.dir < 0 && it.x + it.len < LEFT) it.x += SPAN + it.len;
+        }
+      } else if (L.type === 'rail') {
+        if (L.train) { L.train.x += L.dir * 24 * dt; if (L.dir > 0 ? L.train.x > COLS + 6 : L.train.x + L.train.len < -6) { L.train = null; L.timer = rnd(3, 7); } }
+        else { L.timer -= dt; if (L.timer <= 0) L.train = { len: 14, x: L.dir > 0 ? -20 : COLS + 6 }; }
+      }
+    }
+  }
+
+  // ---------- player ----------
+  let P, cam, score, best = 0, state = 'menu', deadT = 0, started = false, queued = null, eagle = null;
+  try { best = +localStorage.getItem('cr-best') || 0; } catch (e) {}
+  const colOf = x => Math.min(COLS - 1, Math.max(0, Math.floor(x)));
+  function reset() {
+    resetLanes();
+    P = { x: 4.5, row: 0, hop: null, log: null, face: 0, death: null, sq: 1 };
+    cam = 0; score = 0; started = false; queued = null; eagle = null;
+  }
+  function tryMove(dx, dr) {
+    if (state !== 'play' || P.death) return;
+    if (P.hop) { queued = [dx, dr]; return; }
+    const tr = P.row + dr, L = lane(tr);
+    let tx = dr === 0 ? P.x + dx : P.x;
+    if (L.type !== 'river') tx = colOf(tx) + .5;
+    if (tx < .3 || tx > COLS - .3 || tr < -4) return;
+    if (L.type === 'grass' && L.trees.has(colOf(tx))) return;
+    P.face = dx; P.log = null;
+    P.hop = { fx: P.x, fr: P.row, tx, tr, t: 0 };
+    started = true;
+  }
+  function land() {
+    const h = P.hop; P.hop = null; P.x = h.tx; P.row = h.tr;
+    if (P.row > score) score = P.row;
+    const L = lane(P.row);
+    if (L.type === 'river') {
+      const log = L.items.find(l => P.x > l.x - .15 && P.x < l.x + l.len + .15);
+      if (!log) return die('splash');
+      P.log = log;
+      P.x = log.x + Math.min(log.len - .5, Math.max(.5, Math.round(P.x - log.x - .5) + .5));
+    }
+    if (queued) { const q = queued; queued = null; tryMove(q[0], q[1]); }
+  }
+  function die(kind) {
+    if (P.death) return;
+    P.death = kind; P.hop = null; deadT = 0;
+    if (navigator.vibrate) navigator.vibrate(kind === 'squash' ? 150 : [60, 40, 60]);
+  }
+  function hitCheck() {
+    const r = P.hop ? (P.hop.t > .5 ? P.hop.tr : P.hop.fr) : P.row, L = lane(r);
+    const x = P.hop ? P.hop.fx + (P.hop.tx - P.hop.fx) * P.hop.t : P.x;
+    if (L.type === 'road') { for (const c of L.items) if (x > c.x - .25 && x < c.x + c.len + .25 - .15) return die('squash'); }
+    if (L.type === 'rail' && L.train && x > L.train.x - .2 && x < L.train.x + L.train.len + .2) return die('train');
+  }
+
+  function update(dt) {
+    const lo = Math.floor(cam) - 8, hi = Math.floor(cam) + 16;
+    updateLanes(dt, lo, hi);
+    if (state !== 'play') return;
+    if (P.death) {
+      deadT += dt;
+      if (P.death === 'train') P.x += lane(P.row).dir * 14 * dt;
+      if (eagle) eagle.y += 30 * dt;
+      if (deadT > 1.1) gameOver();
+      return;
+    }
+    if (P.hop) { P.hop.t += dt / .12; if (P.hop.t >= 1) land(); }
+    else if (P.log) {
+      const L = lane(P.row); P.x += L.dir * L.speed * dt;
+      if (P.x < -.2 || P.x > COLS + .2) return die('splash');
+    }
+    hitCheck();
+    // camera follows forward, and slowly creeps on its own once you've started
+    if (P.row > cam) cam += (P.row - cam) * Math.min(1, dt * 5);
+    if (started) cam += (0.22 + Math.min(.35, score / 400)) * dt;
+    if (P.row < cam - 3.2 && !P.death) { die('eagle'); eagle = { y: -H * .2 }; }
+  }
+  function gameOver() {
+    state = 'over';
+    const newBest = score > best;
+    if (newBest) { best = score; try { localStorage.setItem('cr-best', best); } catch (e) {} }
+    document.getElementById('overTitle').textContent = newBest && score > 0 ? 'New best! 🏆' :
+      { squash: 'Splat!', splash: 'Splash!', train: 'Choo choo!', eagle: 'Too slow!' }[P.death];
+    document.getElementById('overScore').textContent = score;
+    document.getElementById('overBest').textContent = `Best: ${best}`;
+    document.getElementById('over').style.display = 'flex';
+  }
+
+  // ---------- input ----------
+  let sw = null;
+  cv.addEventListener('pointerdown', e => { sw = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerup', e => {
+    if (!sw) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y; sw = null;
+    if (Math.hypot(dx, dy) < 22) return tryMove(0, 1);
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(Math.sign(dx), 0); else tryMove(0, dy < 0 ? 1 : -1);
+  });
+  cv.addEventListener('pointercancel', () => sw = null);
+  addEventListener('keydown', e => {
+    const m = { ArrowUp: [0, 1], KeyW: [0, 1], Space: [0, 1], ArrowDown: [0, -1], KeyS: [0, -1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] }[e.code];
+    if (m && state === 'play') { e.preventDefault(); if (!e.repeat) tryMove(m[0], m[1]); }
+    if ((e.code === 'Enter' || e.code === 'Space') && state !== 'play') { e.preventDefault(); start(); }
+  });
+
+  // ---------- drawing ----------
+  const X = c => W / 2 + (c - COLS / 2) * T;             // screen x of column coordinate c
+  const Y = r => anchorY + (cam - r) * R + R / 2;          // screen y of the near edge of row r
+  function drawGround(r, L) {
+    const y0 = Y(r) - R;
+    if (L.type === 'grass') {
+      ctx.fillStyle = (r & 1) ? '#8bc34a' : '#7cb342'; ctx.fillRect(0, y0, W, R);
+    } else if (L.type === 'road') {
+      ctx.fillStyle = '#546e7a'; ctx.fillRect(0, y0, W, R);
+      if (lane(r + 1).type === 'road') {
+        ctx.fillStyle = 'rgba(255,255,255,.55)';
+        for (let c = LEFT; c < LEFT + SPAN; c += 1) ctx.fillRect(X(c) + T * .25, y0 - R * .04, T * .5, R * .08);
+      }
+    } else if (L.type === 'river') {
+      ctx.fillStyle = '#29b6f6'; ctx.fillRect(0, y0, W, R);
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      const off = ((performance.now() / 1000 * L.speed * L.dir) % 2 + 2) % 2;
+      for (let c = LEFT - 2; c < LEFT + SPAN + 2; c += 2) ctx.fillRect(X(c + off), y0 + R * .45, T * .5, R * .07);
+    } else {
+      ctx.fillStyle = '#8d6e63'; ctx.fillRect(0, y0, W, R);
+      ctx.fillStyle = '#5d4037';
+      for (let c = LEFT; c < LEFT + SPAN; c += .5) ctx.fillRect(X(c) + T * .1, y0 + R * .12, T * .14, R * .76);
+      ctx.fillStyle = '#cfd8dc'; ctx.fillRect(0, y0 + R * .25, W, R * .09); ctx.fillRect(0, y0 + R * .66, W, R * .09);
+    }
+  }
+  function drawLaneObjects(r, L) {
+    const fy = Y(r) - R * .15;
+    if (L.type === 'grass') {
+      for (let c = LEFT; c < LEFT + SPAN; c++) {
+        const edge = c < 0 || c >= COLS;
+        if (!(edge ? ((c * 7 + r * 13) & 3) !== 0 : L.trees.has(c))) continue;
+        const cx = X(c + .5), tall = (c + r) % 3 === 0;
+        box(ctx, T, cx, fy, .26, .22, 0, .3, '#6d4c41', .2);
+        box(ctx, T, cx, fy, .74, .62, .3, tall ? .95 : .6, '#43a047', .05);
+      }
+    } else if (L.type === 'road') {
+      for (const c of L.items) {
+        const cx = X(c.x + c.len / 2), w = c.len - .15;
+        box(ctx, T, cx - w * .3, fy, .16, .02, 0, .16, '#212121'); box(ctx, T, cx + w * .3, fy, .16, .02, 0, .16, '#212121');
+        if (c.len === 2) {
+          box(ctx, T, cx - L.dir * .25, fy, w - .5, .7, .1, .75, '#eceff1');
+          box(ctx, T, cx + L.dir * (w / 2 - .25), fy, .5, .66, .1, .55, c.color);
+          box(ctx, T, cx + L.dir * (w / 2 - .25), fy, .36, .02, .38, .16, '#263238');
+        } else {
+          box(ctx, T, cx, fy, w, .7, .1, .32, c.color);
+          box(ctx, T, cx - L.dir * .06, fy, w * .6, .5, .42, .24, shade(c.color, .85));
+          box(ctx, T, cx - L.dir * .06, fy, w * .5, .02, .45, .16, '#b3e5fc');
+        }
+      }
+    } else if (L.type === 'river') {
+      for (const l of L.items) {
+        const cx = X(l.x + l.len / 2), w = l.len - .1;
+        box(ctx, T, cx, fy, w, .66, -.05, .22, '#795548');
+        box(ctx, T, cx - w / 2 + .06, fy, .1, .02, 0, .14, '#a1887f'); box(ctx, T, cx + w / 2 - .06, fy, .1, .02, 0, .14, '#a1887f');
+      }
+    } else {
+      const warn = L.train || L.timer < 1.3, on = warn && Math.floor(performance.now() / 180) % 2;
+      const px = X(L.dir > 0 ? -.6 : COLS + .6);
+      box(ctx, T, px, fy, .1, .1, 0, 1.4, '#9e9e9e', .3);
+      box(ctx, T, px, fy, .3, .04, 1.25, .25, on ? '#ff1744' : '#4e342e', .3);
+      if (L.train) {
+        const t = L.train, cx = X(t.x + t.len / 2);
+        box(ctx, T, cx, fy, t.len, .8, .05, .9, '#c62828');
+        for (let i = 1; i < t.len - .5; i += 1) box(ctx, T, X(t.x + i), fy, .5, .02, .5, .25, '#b3e5fc');
+      }
+    }
+  }
+  function drawPlayer() {
+    let x = P.x, r = P.row, z = 0;
+    if (P.hop) { const h = P.hop; x = h.fx + (h.tx - h.fx) * h.t; r = h.fr + (h.tr - h.fr) * h.t; z = Math.sin(Math.PI * h.t) * .35; }
+    if (P.death === 'splash') {
+      const k = Math.min(1, deadT * 2.5), cx = X(x), cy = Y(r) - R * .5;
+      ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(cx, cy, T * (.2 + k * .5 + i * .15), R * (.1 + k * .25 + i * .08), 0, 0, 7); ctx.stroke(); }
+      return;
+    }
+    if (P.death === 'eagle' && eagle && eagle.y > Y(r) - R) return;
+    const s = P.death === 'squash' ? .2 : 1;
+    const sy = Y(r) - R * .2 - z * T;
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(X(x), Y(r) - R * .4, T * .36, R * .22, 0, 0, 7); ctx.fill();
+    CHARS[charIdx].draw(ctx, T * CS, X(x), sy, s);
+  }
+  function drawEagle() {
+    if (!eagle) return;
+    const cx = X(P.x), cy = eagle.y;
+    ctx.fillStyle = '#4e342e'; ctx.fillRect(cx - T * 1.6, cy - T * .15, T * 3.2, T * .3);
+    ctx.fillStyle = '#6d4c41'; ctx.fillRect(cx - T * .35, cy - T * .5, T * .7, T * 1);
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(cx - T * .3, cy + T * .35, T * .6, T * .4);
+    ctx.fillStyle = '#ffb300'; ctx.fillRect(cx - T * .08, cy + T * .75, T * .16, T * .18);
+  }
+  function draw() {
+    const top = Math.ceil(cam + anchorY / R) + 3, bottom = Math.floor(cam - (H - anchorY) / R) - 1;
+    const pr = P.hop ? Math.max(P.hop.fr, P.hop.tr) : P.row;
+    for (let r = top; r >= bottom; r--) {
+      const L = lane(r);
+      drawGround(r, L);
+      drawLaneObjects(r, L);
+      if (r === pr) drawPlayer();
+    }
+    // shade the area outside the playable columns
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.fillRect(0, 0, X(0), H); ctx.fillRect(X(COLS), 0, W - X(COLS), H);
+    drawEagle();
+    // score
+    if (state !== 'menu') {
+      ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      ctx.font = '800 40px system-ui, sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.45)';
+      ctx.strokeText(score, W - 16, 12); ctx.fillStyle = '#fff'; ctx.fillText(score, W - 16, 12);
+      ctx.font = '700 13px system-ui, sans-serif'; ctx.strokeText(`BEST ${best}`, W - 16, 56); ctx.fillText(`BEST ${best}`, W - 16, 56);
+      if (!started && !P.death) {
+        ctx.textAlign = 'center'; ctx.font = '700 17px system-ui, sans-serif';
+        ctx.strokeText('Tap to hop!', W / 2, Y(P.row) + 8); ctx.fillText('Tap to hop!', W / 2, Y(P.row) + 8);
+      }
+    }
+  }
+
+  // ---------- menus ----------
+  const charsEl = document.getElementById('chars');
+  CHARS.forEach((c, i) => {
+    const el = document.createElement('div'); el.className = 'char'; el.dataset.i = i;
+    const pc = document.createElement('canvas'); pc.width = pc.height = 120;
+    const g = pc.getContext('2d'); g.fillStyle = '#c5e1a5'; g.fillRect(0, 84, 120, 36);
+    c.draw(g, 92, 60, 108, 1);
+    el.append(pc, c.name); charsEl.appendChild(el);
+    el.addEventListener('click', () => { charIdx = i; try { localStorage.setItem('cr-char', c.id); } catch (e) {} markSel(); });
+  });
+  function markSel() { [...charsEl.children].forEach((el, i) => el.classList.toggle('sel', i === charIdx)); }
+  markSel();
+  function start() {
+    reset(); state = 'play';
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('over').style.display = 'none';
+  }
+  document.getElementById('play').addEventListener('click', start);
+  document.getElementById('again').addEventListener('click', start);
+  document.getElementById('change').addEventListener('click', () => {
+    document.getElementById('over').style.display = 'none'; document.getElementById('menu').style.display = 'flex'; state = 'menu';
+  });
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    update(dt); draw();
+    requestAnimationFrame(loop);
+  }
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

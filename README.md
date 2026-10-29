@@ -22,3 +22,4 @@ games/<slug>/index.html one folder per game
 
 - **Head Soccer** (`/games/head-soccer/`): 1-player football vs the computer, with falling bombs and selfie faces.
 - **Paper Toss** (`/games/paper-toss/`): swipe a paper ball into the bin, aiming against the fan's wind. One miss ends the streak.
+- **Crossy Roads** (`/games/crossy-roads/`): hop across roads, rivers and train tracks. 5 characters: chicken, frog, penguin, robot, fox.

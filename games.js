@@ -17,4 +17,12 @@ window.GAMES = [
     color: ['#90a4ae', '#455a64'],
     emoji: '🗑️',
   },
+  {
+    slug: 'crossy-roads',
+    title: 'Crossy Roads',
+    description: 'Hop across busy roads, rivers and train tracks as far as you can. Pick from 5 characters.',
+    tags: ['Arcade', '1 player'],
+    color: ['#8bc34a', '#558b2f'],
+    emoji: '🐔',
+  },
 ];
