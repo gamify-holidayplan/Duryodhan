@@ -29,6 +29,7 @@ games/<slug>/index.html one folder per game
 - **Flappy Wings** (`/games/flappy-wings/`): tap to flap through the gaps between pipes. Gaps get tighter as your score climbs.
 - **Hold'em Poker** (`/games/texas-holdem/`): no-limit Texas Hold'em vs 5 bots. 4 stake levels, buy-ins, blinds, side pots, saved bankroll with a daily bonus.
 - **Poker Night Live** (`/games/poker-live/`): multiplayer Texas Hold'em with friends over a share link, with live video and voice at each seat. Needs the game server below.
+- **Aura Farm Defense** (`/games/aura-farm/`): lane defense. Plant Aura Blooms, Drip Shooters, Frost Fits, Rizz Rocks and Mog Mines to stop waves of aura-draining NPCs.
 
 ## Poker Night Live server
 
@@ -61,4 +62,7 @@ Cloudflare dashboard under Workers & Pages → `poker-live` → Settings → Var
 
 New tables then use LiveKit automatically; if it can't connect, the page falls back to peer-to-peer.
 
-- **Aura Farm Defense** (`/games/aura-farm/`): lane defense. Plant Aura Blooms, Drip Shooters, Frost Fits, Rizz Rocks and Mog Mines to stop waves of aura-draining NPCs.
+**Video between phones on mobile data** needs a relay (TURN) server, because carriers block direct connections.
+Create one in the Cloudflare dashboard under Realtime → TURN Server, then add its two values to the `poker-live`
+Worker as secrets: `TURN_KEY_ID` and `TURN_KEY_API_TOKEN`. The server then hands every player short-lived relay
+credentials, and connections that can't go direct are relayed automatically (free up to Cloudflare's monthly allowance).
