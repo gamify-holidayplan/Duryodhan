@@ -11,7 +11,7 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
   html, body { margin: 0; height: 100%; background: #0d2b12; overflow: hidden; touch-action: none; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
   #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  canvas { display: block; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,.5); }
+  canvas#c { display: block; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,.5); }
   .ctrl { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 12px; z-index: 5; }
   #left { left: calc(14px + env(safe-area-inset-left)); }
   #right { right: calc(14px + env(safe-area-inset-right)); }
@@ -20,28 +20,49 @@
   .btn.on { background: rgba(255,255,255,.45); }
   #kick { background: rgba(255,82,82,.35); }
   #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-             background: rgba(0,0,0,.6); z-index: 10; text-align: center; padding: 16px; }
-  #overlay h1 { font-size: clamp(32px, 8vw, 56px); margin: 0 0 8px; letter-spacing: 2px; }
-  #overlay p { margin: 6px 0; opacity: .9; max-width: 420px; }
-  #play { margin-top: 16px; padding: 14px 40px; font-size: 22px; font-weight: 700; border: 0; border-radius: 40px; background: #ffca28; color: #222; }
-  #selfieRow { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-  #selfieRow button { padding: 10px 18px; font-size: 16px; font-weight: 600; border: 2px solid #fff; border-radius: 30px; background: transparent; color: #fff; }
-  #facePrev { width: 56px; height: 56px; border-radius: 50%; border: 3px solid #42a5f5; object-fit: cover; display: none; }
-  #overlay { overflow-y: auto; touch-action: pan-y; }
-  @media (max-height: 500px) {
-    #overlay h1 { font-size: 30px; margin-bottom: 2px; }
-    #overlay p { margin: 3px 0; font-size: 13px !important; }
-    #selfieRow { margin-top: 6px; }
-    #selfieRow button { padding: 6px 14px; font-size: 14px; }
-    #facePrev { width: 40px; height: 40px; }
-    #play { margin-top: 8px; padding: 10px 36px; font-size: 18px; }
-  }
-  @media (hover: none) { .kbd { display: none; } }
+             background: rgba(0,0,0,.62); z-index: 10; text-align: center; padding: 56px 16px 16px; overflow-y: auto; touch-action: pan-y; }
+  .panel { width: min(560px, 100%); margin: auto; }
+  #overlay h1 { font-size: clamp(30px, 7vw, 52px); margin: 0 0 6px; letter-spacing: 2px; }
+  #overlay p { margin: 6px auto; opacity: .9; max-width: 460px; }
+  .small { font-size: 13px; opacity: .8; }
+  .label { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: .75; margin: 12px 0 6px; }
+  #heads { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+  .head { border: 3px solid rgba(255,255,255,.15); border-radius: 14px; padding: 4px 2px 6px; background: rgba(255,255,255,.07); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .head canvas { width: 100%; aspect-ratio: 1; display: block; }
+  .head.sel { border-color: #ffca28; background: rgba(255,202,40,.18); }
+  .modes { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
+  .big { padding: 13px 22px; font-size: 18px; font-weight: 800; border: 0; border-radius: 40px; background: #ffca28; color: #222; cursor: pointer; }
+  .big.alt { background: #42a5f5; color: #fff; }
+  .big.ghost { background: rgba(255,255,255,.15); color: #fff; }
+  .big:disabled { opacity: .45; }
+  .joinRow { display: flex; gap: 8px; }
+  #codeIn { width: 120px; padding: 12px; border-radius: 30px; border: 2px solid rgba(255,255,255,.5); background: rgba(0,0,0,.3); color: #fff;
+            font-size: 18px; font-weight: 800; text-align: center; letter-spacing: 3px; text-transform: uppercase; user-select: text; -webkit-user-select: text; }
+  .code { font-size: 46px; font-weight: 900; letter-spacing: 8px; margin: 4px 0; color: #ffca28; }
+  .seats { display: flex; gap: 12px; justify-content: center; margin: 10px 0; }
+  .seat { flex: 1; max-width: 200px; padding: 10px; border-radius: 16px; background: rgba(255,255,255,.08); font-weight: 700; }
+  .seat canvas { width: 64px; height: 64px; display: block; margin: 0 auto 4px; }
+  .seat .st { font-size: 12px; font-weight: 600; opacity: .75; }
+  #err { color: #ff8a80; font-weight: 700; min-height: 1.2em; }
   #home { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); padding: 8px 14px;
           border-radius: 20px; background: rgba(255,255,255,.15); color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; }
   #rotate { display: none; position: fixed; top: calc(64px + env(safe-area-inset-top)); left: 0; right: 0; text-align: center; font-size: 13px; opacity: .8; z-index: 6; }
   @media (orientation: portrait) and (max-width: 700px) { #rotate { display: block; } }
   @media (hover: hover) and (pointer: fine) { .ctrl { display: none; } }
+  @media (hover: none) { .kbd { display: none; } }
+  @media (max-height: 500px) {
+    #overlay { padding-top: 50px; }
+    #overlay h1 { font-size: 26px; margin-bottom: 0; }
+    #overlay p { margin: 3px auto; font-size: 13px; }
+    #heads { grid-template-columns: repeat(7, 1fr); }
+    .label { margin: 6px 0 4px; }
+    .modes { margin-top: 8px; }
+    .big { padding: 9px 16px; font-size: 15px; }
+    .code { font-size: 30px; margin: 0; }
+    .seats { margin: 4px 0; }
+    .seat { padding: 4px; font-size: 14px; }
+    .seat canvas { width: 40px; height: 40px; }
+  }
 </style>
 </head>
 <body>
@@ -57,17 +78,37 @@
 </div>
 <div id="overlay">
   <a id="home" href="/">← All games</a>
-  <h1>HEAD SOCCER</h1>
-  <p id="msg">You are <b style="color:#42a5f5">Blue</b>. First to 5 goals or most goals in 90 seconds wins.</p>
-  <p style="font-size:14px">Phone: ◀ ▶ move, ▲ jump, ⚽ kick<span class="kbd"><br>Keyboard: A/D or ←/→ move, W/↑ jump, Space kick</span></p>
-  <p style="font-size:14px">💣 Watch out for falling bombs! Get caught in the blast and you're covered in ash and frozen for 5 seconds.</p>
-  <div id="selfieRow">
-    <img id="facePrev" alt="Your face">
-    <button id="selfieBtn">📸 Take selfie</button>
-    <button id="clearFace" style="display:none">✕</button>
+
+  <div class="panel" id="menuMain">
+    <h1 id="title">HEAD SOCCER</h1>
+    <p id="msg">First to 5 goals, or the most goals in 90 seconds, wins. Watch out for falling bombs 💣</p>
+    <div class="label">Pick your head</div>
+    <div id="heads"></div>
+    <div class="modes">
+      <button class="big ghost" id="selfieBtn">📸 Selfie head</button>
+    </div>
+    <input type="file" id="selfieIn" accept="image/*" capture="user" hidden>
+    <div class="modes">
+      <button class="big" id="play">⚽ Play vs CPU</button>
+      <button class="big alt" id="create">🌐 Create online room</button>
+      <div class="joinRow"><input id="codeIn" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters"><button class="big alt" id="join">Join</button></div>
+    </div>
+    <p id="err"></p>
+    <p class="small">Phone: ◀ ▶ move, ▲ jump, ⚽ kick<span class="kbd"> · Keyboard: A/D or ←/→ move, W/↑ jump, Space kick</span></p>
   </div>
-  <input type="file" id="selfieIn" accept="image/*" capture="user" hidden>
-  <button id="play">PLAY</button>
+
+  <div class="panel" id="lobby" style="display:none">
+    <h1 id="lobbyTitle">ONLINE MATCH</h1>
+    <p id="lobbyMsg">Send this code to a friend. They open Head Soccer and tap Join.</p>
+    <div class="code" id="roomCode">-----</div>
+    <div class="modes" style="margin-top:4px"><button class="big ghost" id="share">🔗 Share invite link</button></div>
+    <div class="seats"><div class="seat" id="seat0"></div><div class="seat" id="seat1"></div></div>
+    <p id="lobbyStatus" class="small"></p>
+    <div class="modes">
+      <button class="big" id="startOnline" disabled>Start match</button>
+      <button class="big ghost" id="leave">Leave</button>
+    </div>
+  </div>
 </div>
 <script>
 (() => {
@@ -75,6 +116,8 @@
   const GOAL_W = 60, GOAL_TOP = 250, BAR_H = 8;
   const WIN_SCORE = 5, MATCH_TIME = 90;
   const BOMB_RADIUS = 95, ASH_TIME = 5;
+  const params = new URLSearchParams(location.search);
+  const API = params.get('api') || 'https://poker-live.dixshant4.workers.dev';   // same game server as Poker Live
 
   const cv = document.getElementById('c'), ctx = cv.getContext('2d');
   function resize() {
@@ -85,11 +128,12 @@
     ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
   }
   addEventListener('resize', resize); resize();
+  const $ = id => document.getElementById(id);
 
   // ---------- input ----------
   const keys = { left: false, right: false, jump: false, kick: false };
   const keyMap = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', Space: 'kick' };
-  addEventListener('keydown', e => { if (keyMap[e.code]) { keys[keyMap[e.code]] = true; e.preventDefault(); } });
+  addEventListener('keydown', e => { if (keyMap[e.code] && e.target.tagName !== 'INPUT') { keys[keyMap[e.code]] = true; e.preventDefault(); } });
   addEventListener('keyup', e => { if (keyMap[e.code]) keys[keyMap[e.code]] = false; });
   // multi-touch: recompute pressed buttons from all active touches
   const btns = [...document.querySelectorAll('.btn')];
@@ -109,20 +153,95 @@
     updateTouches(e);
   }, { passive: false }));
 
-  // ---------- entities ----------
-  function makePlayer(x, dir, color, skin) {
-    return { x, y: GROUND - 34, vx: 0, vy: 0, r: 34, dir, color, skin, kickT: 0, kickCd: 0, onGround: true, startX: x, ash: 0 };
+  // ---------- heads ----------
+  // Cartoon caricatures: just a hairstyle and skin tone each, drawn with shapes.
+  const HEADS = {
+    classic:  { name: 'Classic', skin: '#ffcc99' },
+    ronaldo:  { name: 'Ronaldo', skin: '#e2b48c' },
+    messi:    { name: 'Messi', skin: '#ecbf96' },
+    zidane:   { name: 'Zidane', skin: '#d9a77c' },
+    pele:     { name: 'Pelé', skin: '#6e4329' },
+    maradona: { name: 'Maradona', skin: '#d39a69' },
+    selfie:   { name: 'Selfie', skin: '#ffcc99' },
+  };
+  const LEGENDS = ['ronaldo', 'messi', 'zidane', 'pele', 'maradona'];
+  function drawHead(g, id, x, y, r, dir, look, teamColor, face) {
+    if (id === 'selfie' && face) {
+      g.save(); g.beginPath(); g.arc(x, y, r, 0, 7); g.clip();
+      g.drawImage(face, x - r, y - r, r * 2, r * 2); g.restore();
+      g.strokeStyle = teamColor; g.lineWidth = r * .12; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke();
+      return;
+    }
+    const h = HEADS[id] || HEADS.classic, k = r / 34;
+    g.fillStyle = h.skin; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 2 * k; g.stroke();
+    const hair = (c, a0, a1) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, Math.PI * a0, Math.PI * a1); g.fill(); };
+    const blob = (c, bx, by, rx, ry) => { g.fillStyle = c; g.beginPath(); g.ellipse(x + bx * k, y + by * k, rx * k, ry * k, 0, 0, 7); g.fill(); };
+    if (id === 'classic' || id === 'selfie') {
+      hair('#3e2723', 1.05, 1.95);
+      g.fillStyle = teamColor; g.fillRect(x - r + 3 * k, y - 16 * k, r * 2 - 6 * k, 7 * k);
+    } else if (id === 'ronaldo') {
+      // short sides, tall styled quiff at the front
+      hair('#24170f', 1.08, 1.92);
+      blob('#24170f', dir * 10, -30, 17, 9);
+      blob('#24170f', dir * 18, -27, 9, 7);
+      g.strokeStyle = '#24170f'; g.lineWidth = 3 * k; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x + dir * 7 * k, y - 11 * k); g.lineTo(x + dir * 21 * k, y - 13 * k); g.stroke();
+    } else if (id === 'messi') {
+      // fringe swept across and a full beard
+      hair('#5b3a20', 1.0, 2.0);
+      blob('#5b3a20', dir * 8, -22, 22, 9);
+      g.fillStyle = '#5b3a20'; g.beginPath(); g.arc(x, y, r, Math.PI * .08, Math.PI * .92); g.arc(x + dir * 4 * k, y + 4 * k, r * .72, Math.PI * .85, Math.PI * .15, true); g.fill();
+    } else if (id === 'zidane') {
+      // bald with a shine, a little hair at the back, stubble
+      blob('#3b2a20', -dir * 26, -6, 8, 14);
+      g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(x - dir * 4 * k, y - 22 * k, 10 * k, 5 * k, -dir * .3, 0, 7); g.fill();
+      g.fillStyle = 'rgba(60,40,30,.35)'; for (let i = 0; i < 14; i++) { const a = .15 + i / 14 * .7; g.beginPath(); g.arc(x + Math.cos(a * Math.PI) * r * .8, y + Math.sin(a * Math.PI) * r * .8, 1.4 * k, 0, 7); g.fill(); }
+    } else if (id === 'pele') {
+      // short tight curls
+      hair('#111', 1.06, 1.94);
+      g.fillStyle = '#111'; for (let i = 0; i <= 8; i++) { const a = Math.PI * (1.1 + i * .1); g.beginPath(); g.arc(x + Math.cos(a) * r * .95, y + Math.sin(a) * r * .95, 5 * k, 0, 7); g.fill(); }
+    } else if (id === 'maradona') {
+      // big curly mop and stubble
+      g.fillStyle = '#121212';
+      for (let i = 0; i <= 12; i++) { const a = Math.PI * (.95 + i * .095); g.beginPath(); g.arc(x + Math.cos(a) * r * 1.0, y + Math.sin(a) * r * 1.0, 8.5 * k, 0, 7); g.fill(); }
+      hair('#121212', 1.0, 2.0);
+      blob('#121212', -dir * 28, 4, 9, 12);
+      g.fillStyle = 'rgba(20,20,20,.35)'; for (let i = 0; i < 16; i++) { const a = .12 + i / 16 * .76; g.beginPath(); g.arc(x + Math.cos(a * Math.PI) * r * .78, y + Math.sin(a * Math.PI) * r * .78, 1.5 * k, 0, 7); g.fill(); }
+    }
+    // eye that follows the ball
+    const ex = x + dir * 14 * k, ey = y - 2 * k;
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(ex, ey, 8 * k, 0, 7); g.fill();
+    const a = Math.atan2(look.y - ey, look.x - ex);
+    g.fillStyle = '#111'; g.beginPath(); g.arc(ex + Math.cos(a) * 3.5 * k, ey + Math.sin(a) * 3.5 * k, 4 * k, 0, 7); g.fill();
+    // mouth
+    if (id === 'pele') {
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(x + dir * 10 * k, y + 12 * k, 8 * k, 0, Math.PI); g.fill();
+      g.strokeStyle = '#3b1f12'; g.lineWidth = 2 * k; g.stroke();
+    } else {
+      g.strokeStyle = id === 'messi' ? '#3b220f' : '#6d4c41'; g.lineWidth = 3 * k; g.beginPath();
+      g.arc(x + dir * 10 * k, y + 14 * k, 7 * k, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+    }
   }
-  const p1 = makePlayer(200, 1, '#1e88e5', '#ffcc99');
-  const p2 = makePlayer(600, -1, '#e53935', '#e0a97a');
+
+  // ---------- entities ----------
+  function makePlayer(x, dir, color) {
+    return { x, y: GROUND - 34, vx: 0, vy: 0, r: 34, dir, color, kickT: 0, kickCd: 0, onGround: true, startX: x, ash: 0 };
+  }
+  const p1 = makePlayer(200, 1, '#1e88e5');
+  const p2 = makePlayer(600, -1, '#e53935');
+  const P = [p1, p2];
   const ball = { x: W / 2, y: 150, vx: 0, vy: 0, r: 15, spin: 0 };
 
   let score = [0, 0], timeLeft = MATCH_TIME, state = 'menu', pauseT = 0, banner = '';
   let bombs = [], blasts = [], bombTimer = 0, shake = 0;
+  let mode = 'cpu';                 // 'cpu' | 'host' | 'guest'
+  let mySide = 0;
+  const heads = ['classic', 'messi'], faces = [null, null], names = ['You', 'CPU'];
   const nextBombDelay = () => 3 + Math.random() * 5;
 
   function resetPositions(towards) {
-    for (const p of [p1, p2]) { p.x = p.startX; p.y = GROUND - p.r; p.vx = p.vy = 0; p.kickT = 0; p.ash = 0; }
+    for (const p of P) { p.x = p.startX; p.y = GROUND - p.r; p.vx = p.vy = 0; p.kickT = 0; p.ash = 0; }
     bombs = []; blasts = []; bombTimer = nextBombDelay();
     ball.x = W / 2; ball.y = 140; ball.vy = 0; ball.vx = towards * 60; ball.spin = 0;
   }
@@ -156,7 +275,7 @@
   // ---------- player update ----------
   function updatePlayer(p, input, dt) {
     if (p.ash > 0) { p.ash -= dt; input = { left: 0, right: 0, jump: 0, kick: 0 }; } // frozen in ash
-    const speed = p === p2 ? 175 : 210;
+    const speed = p === p2 && mode === 'cpu' ? 175 : 210;
     p.vx = (input.right - input.left) * speed;
     if (input.jump && p.onGround) { p.vy = -620; p.onGround = false; }
     if (input.kick && p.kickCd <= 0) { p.kickT = 0.22; p.kickCd = 0.35; p.hit = false; }
@@ -198,15 +317,18 @@
     ai.kick = dx < 10 && dx > -75 && Math.abs(ball.y - (p2.y + p2.r)) < 55 && Math.random() < 0.5;
   }
 
-  // ---------- main update ----------
+  // ---------- main update (runs on the CPU game and on the online host) ----------
+  const remoteIn = { left: false, right: false, jump: false, kick: false };
   function update(dt) {
+    if (mode === 'guest') return;
+    if (mode === 'host' && !net.oppOnline && (state === 'play' || state === 'goal')) return; // paused until they're back
     if (state === 'goal') { pauseT -= dt; if (pauseT <= 0) { if (checkEnd()) return; state = 'play'; } return; }
     if (state !== 'play') return;
     timeLeft -= dt;
     if (timeLeft <= 0) { timeLeft = 0; endGame(); return; }
 
     updatePlayer(p1, keys, dt);
-    updateAI(dt); updatePlayer(p2, ai, dt);
+    if (mode === 'cpu') { updateAI(dt); updatePlayer(p2, ai, dt); } else updatePlayer(p2, remoteIn, dt);
     separatePlayers();
     updateBombs(dt);
 
@@ -243,15 +365,14 @@
     bombs = bombs.filter(b => !b.done);
     for (const e of blasts) e.t += dt;
     blasts = blasts.filter(e => e.t < 0.6);
-    shake = Math.max(0, shake - dt);
   }
   function explode(b) {
     b.done = true; shake = 0.35;
     blasts.push({ x: b.x, y: GROUND - 14, t: 0 });
-    for (const p of [p1, p2]) {
+    for (const p of P) {
       if (Math.hypot(p.x - b.x, p.y - (GROUND - 14)) < BOMB_RADIUS + p.r * 0.5) {
         p.ash = ASH_TIME; p.vy = -350; p.onGround = false;
-        if (p === p1 && navigator.vibrate) navigator.vibrate(250);
+        if (p === P[mySide] && navigator.vibrate) navigator.vibrate(250);
       }
     }
     const dx = ball.x - b.x, dy = ball.y - (GROUND - 14), d = Math.hypot(dx, dy);
@@ -280,38 +401,64 @@
 
   function goal(who) {
     score[who]++; state = 'goal'; pauseT = 1.6;
-    banner = who === 0 ? 'GOAL!' : 'CPU SCORES';
-    if (navigator.vibrate) navigator.vibrate(who === 0 ? [60, 40, 60] : 120);
+    banner = mode === 'cpu' ? (who === 0 ? 'GOAL!' : 'CPU SCORES') : `${names[who].toUpperCase()} SCORES!`;
+    goalBuzz(who);
     resetPositions(who === 0 ? 1 : -1);
   }
+  function goalBuzz(who) { if (navigator.vibrate) navigator.vibrate(who === mySide ? [60, 40, 60] : 120); }
   function checkEnd() { if (score[0] >= WIN_SCORE || score[1] >= WIN_SCORE) { endGame(); return true; } return false; }
   function endGame() {
     state = 'over';
-    const [a, b] = score;
-    document.querySelector('#overlay h1').textContent = a > b ? 'YOU WIN! 🏆' : a < b ? 'YOU LOSE' : 'DRAW';
-    document.getElementById('msg').innerHTML = `Final score: <b>${a} – ${b}</b>`;
-    document.getElementById('play').textContent = 'PLAY AGAIN';
-    document.getElementById('overlay').style.display = 'flex';
+    if (mode === 'host') net.sendState(true);
+    showResult();
   }
-  function start() {
+  function showResult() {
+    const mine = score[mySide], theirs = score[1 - mySide];
+    const title = mine > theirs ? 'YOU WIN! 🏆' : mine < theirs ? 'YOU LOSE' : 'DRAW';
+    const line = `Final score: <b>${score[0]} – ${score[1]}</b>`;
+    if (mode === 'cpu') {
+      $('title').textContent = title; $('msg').innerHTML = line; $('play').textContent = '⚽ Play again';
+      showPanel('menuMain');
+    } else {
+      $('lobbyTitle').textContent = title; $('lobbyMsg').innerHTML = line + (mode === 'host' ? ' · Tap Start for a rematch' : ' · Waiting for a rematch');
+      showPanel('lobby'); renderLobby();
+    }
+  }
+  function startMatch() {
     score = [0, 0]; timeLeft = MATCH_TIME; resetPositions(Math.random() < .5 ? 1 : -1);
-    state = 'play'; document.getElementById('overlay').style.display = 'none';
+    state = 'play'; banner = ''; $('overlay').style.display = 'none';
   }
-  const playBtn = document.getElementById('play');
-  playBtn.addEventListener('click', start);
+  function showPanel(id) {
+    $('overlay').style.display = 'flex';
+    $('menuMain').style.display = id === 'menuMain' ? '' : 'none';
+    $('lobby').style.display = id === 'lobby' ? '' : 'none';
+  }
 
-  // ---------- selfie face ----------
-  let faceImg = null;
-  const facePrev = document.getElementById('facePrev'), clearFace = document.getElementById('clearFace');
-  const selfieIn = document.getElementById('selfieIn');
+  // ---------- head picker & selfie ----------
+  let myHead = 'classic', myFace = null, myFaceData = null;
+  try { myHead = localStorage.getItem('hs-head') || 'classic'; } catch (e) {}
+  const headsEl = $('heads');
+  function renderHeadPicker() {
+    headsEl.innerHTML = '';
+    const ids = ['classic', ...LEGENDS, ...(myFace ? ['selfie'] : [])];
+    if (!ids.includes(myHead)) myHead = 'classic';
+    for (const id of ids) {
+      const el = document.createElement('div'); el.className = 'head' + (id === myHead ? ' sel' : '');
+      const c = document.createElement('canvas'); c.width = c.height = 120;
+      drawHead(c.getContext('2d'), id, 60, 62, 46, 1, { x: 120, y: 62 }, '#1e88e5', myFace);
+      el.append(c, HEADS[id].name);
+      el.addEventListener('click', () => { myHead = id; try { localStorage.setItem('hs-head', id); } catch (e) {} renderHeadPicker(); });
+      headsEl.appendChild(el);
+    }
+  }
   function setFace(url) {
-    if (!url) { faceImg = null; facePrev.style.display = clearFace.style.display = 'none'; return; }
+    if (!url) { myFace = null; myFaceData = null; renderHeadPicker(); return; }
     const img = new Image();
-    img.onload = () => { faceImg = img; facePrev.src = url; facePrev.style.display = 'block'; clearFace.style.display = 'inline-block'; };
+    img.onload = () => { myFace = img; myFaceData = url; renderHeadPicker(); };
     img.src = url;
   }
-  document.getElementById('selfieBtn').addEventListener('click', () => selfieIn.click());
-  clearFace.addEventListener('click', () => { setFace(null); try { localStorage.removeItem('hs-face'); } catch (e) {} });
+  const selfieIn = $('selfieIn');
+  $('selfieBtn').addEventListener('click', () => selfieIn.click());
   selfieIn.addEventListener('change', () => {
     const file = selfieIn.files[0]; if (!file) return;
     const src = new Image(), url = URL.createObjectURL(file);
@@ -321,13 +468,163 @@
       const c = document.createElement('canvas'); c.width = c.height = 160;
       c.getContext('2d').drawImage(src, sx, sy, size, size, 0, 0, 160, 160);
       URL.revokeObjectURL(url);
-      const data = c.toDataURL('image/jpeg', 0.85);
+      const data = c.toDataURL('image/jpeg', 0.8);
+      myHead = 'selfie';
+      try { localStorage.setItem('hs-face', data); localStorage.setItem('hs-head', 'selfie'); } catch (e) {}
       setFace(data);
-      try { localStorage.setItem('hs-face', data); } catch (e) {}
     };
     src.src = url; selfieIn.value = '';
   });
   try { setFace(localStorage.getItem('hs-face')); } catch (e) {}
+  renderHeadPicker();
+
+  // ---------- online ----------
+  const net = {
+    ws: null, code: null, seats: [null, null], oppOnline: false, lastSent: 0, lastIn: '', inAt: 0, retry: 0, closedByUs: false,
+    pid: (() => { try { let id = localStorage.getItem('hs-pid'); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('hs-pid', id); } return id; } catch (e) { return Math.random().toString(36).slice(2); } })(),
+    connect(code) {
+      this.code = code; this.closedByUs = false;
+      const ws = this.ws = new WebSocket(`${API.replace(/^http/, 'ws')}/api/soccer/${code}/ws`);
+      ws.onopen = () => {
+        this.retry = 0;
+        ws.send(JSON.stringify({ t: 'hello', pid: this.pid, name: HEADS[myHead].name, head: myHead, face: myHead === 'selfie' ? myFaceData : null }));
+      };
+      ws.onmessage = ev => this.onMessage(JSON.parse(ev.data));
+      ws.onclose = () => {
+        if (this.ws !== ws || this.closedByUs) return;
+        this.oppOnline = false; setStatus('Connection lost, reconnecting…');
+        setTimeout(() => { if (this.ws === ws && !this.closedByUs) this.connect(code); }, Math.min(4000, 500 * ++this.retry));
+      };
+    },
+    send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); },
+    leave() { this.closedByUs = true; if (this.ws) this.ws.close(); this.ws = null; mode = 'cpu'; mySide = 0; state = 'menu'; history.replaceState(null, '', location.pathname); },
+    onMessage(m) {
+      if (m.t === 'welcome') {
+        mySide = m.side; mode = m.side === 0 ? 'host' : 'guest';
+        $('roomCode').textContent = m.code;
+        history.replaceState(null, '', `?room=${m.code}${params.get('api') ? '&api=' + encodeURIComponent(params.get('api')) : ''}`);
+        if (myHead === 'selfie') faces[mySide] = myFace;
+        if (state !== 'play' && state !== 'goal') showPanel('lobby');
+        renderLobby();
+      } else if (m.t === 'players') {
+        this.seats = m.seats;
+        for (let s = 0; s < 2; s++) if (m.seats[s]) { heads[s] = m.seats[s].head; names[s] = m.seats[s].name; }
+        this.oppOnline = !!(m.seats[1 - mySide] && m.seats[1 - mySide].online);
+        renderLobby();
+      } else if (m.t === 'face') {
+        const img = new Image(); img.onload = () => { faces[m.side] = img; renderLobby(); }; img.src = m.data;
+      } else if (m.t === 'error') {
+        if (m.fatal) { this.leave(); showPanel('menuMain'); $('err').textContent = m.msg; }
+      } else if (m.t === 'in' && mode === 'host') {
+        [remoteIn.left, remoteIn.right, remoteIn.jump, remoteIn.kick] = m.k.map(Boolean);
+      } else if (m.t === 'start' && mode === 'guest') {
+        state = 'play'; score = [0, 0]; $('overlay').style.display = 'none';
+      } else if (m.t === 'st' && mode === 'guest') applyState(m);
+    },
+    // host -> guest, about 20 times a second
+    sendState(force) {
+      const now = performance.now();
+      if (!force && now - this.lastSent < 50) return;
+      this.lastSent = now;
+      const r = v => Math.round(v * 10) / 10;
+      this.send({ t: 'st', s: state, sc: score, tl: r(timeLeft), ban: banner, sh: r(shake),
+        b: [r(ball.x), r(ball.y), r(ball.vx), r(ball.vy), r(ball.spin)],
+        p: P.map(p => [r(p.x), r(p.y), r(p.vx), r(p.vy), r(p.kickT * 100) / 100, r(p.ash)]),
+        bo: bombs.map(b => [r(b.x), r(b.y), r(b.fuse)]), bl: blasts.map(e => [r(e.x), r(e.t * 100) / 100]) });
+    },
+    // guest -> host whenever the buttons change, plus a heartbeat
+    sendInput() {
+      const k = [keys.left, keys.right, keys.jump, keys.kick].map(Number), s = k.join('');
+      const now = performance.now();
+      if (s !== this.lastIn || now - this.inAt > 250) { this.lastIn = s; this.inAt = now; this.send({ t: 'in', k }); }
+    },
+  };
+  // the guest just draws what the host sends, smoothing between updates
+  const target = { b: null, p: [null, null] };
+  function applyState(m) {
+    const prevScore = score.slice(), prevState = state;
+    score = m.sc; timeLeft = m.tl; banner = m.ban; if (m.sh > shake) shake = m.sh;
+    target.b = m.b; target.p = m.p;
+    bombs = m.bo.map(([x, y, fuse]) => ({ x, y, fuse }));
+    const newBlast = m.bl.some(([x, t]) => t < .1) && !blasts.some(e => e.t < .1);
+    blasts = m.bl.map(([x, t]) => ({ x, y: GROUND - 14, t }));
+    m.p.forEach((q, i) => { if (q[5] > 0 && P[i].ash <= 0 && i === mySide && navigator.vibrate) navigator.vibrate(250); P[i].ash = q[5]; P[i].kickT = q[4]; });
+    for (let s = 0; s < 2; s++) if (score[s] > prevScore[s]) goalBuzz(s);
+    if (newBlast) shake = .35;
+    if (m.s === 'goal' && prevState !== 'goal') snapAll();
+    state = m.s;
+    if (state === 'over' && prevState !== 'over') showResult();
+    else if ((state === 'play' || state === 'goal') && $('overlay').style.display !== 'none') $('overlay').style.display = 'none';
+  }
+  function snapAll() {
+    if (!target.b) return;
+    [ball.x, ball.y, ball.vx, ball.vy, ball.spin] = target.b;
+    target.p.forEach((q, i) => { [P[i].x, P[i].y, P[i].vx, P[i].vy] = q; });
+  }
+  function smoothGuest(dt) {
+    if (!target.b) return;
+    const k = 1 - Math.exp(-dt * 18), [bx, by, bvx, bvy, bs] = target.b;
+    // aim a little ahead using the host's velocities, then ease towards it
+    ball.x += (bx + bvx * .03 - ball.x) * k; ball.y += (by + bvy * .03 - ball.y) * k; ball.spin = bs;
+    target.p.forEach((q, i) => { const p = P[i]; p.x += (q[0] - p.x) * k; p.y += (q[1] - p.y) * k; });
+    for (const b of bombs) b.fuse += dt;
+  }
+
+  // ---------- lobby ----------
+  function setStatus(t) { $('lobbyStatus').textContent = t; }
+  function renderLobby() {
+    for (let s = 0; s < 2; s++) {
+      const el = $('seat' + s), seat = net.seats[s];
+      el.innerHTML = '';
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      if (seat) drawHead(c.getContext('2d'), seat.head, 64, 64, 50, s ? -1 : 1, { x: s ? 0 : 128, y: 64 }, s ? '#e53935' : '#1e88e5', faces[s]);
+      const name = document.createElement('div'); name.textContent = seat ? seat.name + (s === mySide ? ' (you)' : '') : (s ? 'Waiting for friend…' : '—');
+      const st = document.createElement('div'); st.className = 'st';
+      st.textContent = (s ? 'Red · ' : 'Blue · ') + (seat ? (seat.online ? 'online' : 'offline') : 'empty');
+      el.append(c, name, st);
+    }
+    const ready = net.oppOnline;
+    $('startOnline').style.display = mode === 'host' ? '' : 'none';
+    $('startOnline').disabled = !ready;
+    setStatus(mode === 'host' ? (ready ? 'Your friend is here. Start when you are ready!' : 'Waiting for your friend to join…')
+                              : (ready ? 'Waiting for the host to start…' : 'The host is offline. Waiting for them to come back…'));
+  }
+  async function createRoom() {
+    $('err').textContent = ''; $('create').disabled = true;
+    try {
+      const res = await fetch(`${API}/api/soccer`, { method: 'POST' });
+      const j = await res.json();
+      if (!j.code) throw new Error(j.error || 'no code');
+      net.seats = [null, null]; net.connect(j.code);
+    } catch (e) { $('err').textContent = "Couldn't reach the game server. Check your connection, or online play may not be switched on yet."; }
+    $('create').disabled = false;
+  }
+  function joinRoom() {
+    const code = $('codeIn').value.trim().toUpperCase();
+    if (!/^[A-Z0-9]{5}$/.test(code)) { $('err').textContent = 'Room codes are 5 letters and numbers.'; return; }
+    $('err').textContent = ''; net.seats = [null, null]; net.connect(code);
+  }
+  $('create').addEventListener('click', createRoom);
+  $('join').addEventListener('click', joinRoom);
+  $('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+  $('startOnline').addEventListener('click', () => {
+    if (mode !== 'host' || !net.oppOnline) return;
+    startMatch(); net.send({ t: 'start' }); net.sendState(true);
+  });
+  $('leave').addEventListener('click', () => { net.leave(); $('title').textContent = 'HEAD SOCCER'; showPanel('menuMain'); });
+  $('share').addEventListener('click', async () => {
+    const url = `${location.origin}${location.pathname}?room=${net.code}${params.get('api') ? '&api=' + encodeURIComponent(params.get('api')) : ''}`;
+    try { if (navigator.share) await navigator.share({ title: 'Head Soccer', text: `Play Head Soccer with me! Room ${net.code}`, url }); else { await navigator.clipboard.writeText(url); setStatus('Invite link copied!'); } }
+    catch (e) {}
+  });
+  $('play').addEventListener('click', () => {
+    mode = 'cpu'; mySide = 0;
+    heads[0] = myHead; faces[0] = myHead === 'selfie' ? myFace : null; names[0] = 'You';
+    const others = LEGENDS.filter(h => h !== myHead); heads[1] = others[Math.floor(Math.random() * others.length)]; faces[1] = null; names[1] = 'CPU';
+    $('title').textContent = 'HEAD SOCCER';
+    startMatch();
+  });
+  if (params.get('room')) { $('codeIn').value = params.get('room').toUpperCase().slice(0, 5); $('msg').innerHTML = `You've been invited to room <b>${$('codeIn').value}</b>. Pick your head and tap <b>Join</b>.`; }
 
   // ---------- drawing ----------
   function drawField() {
@@ -353,7 +650,7 @@
     ctx.fillRect(GOAL_W, GOAL_TOP - BAR_H, 6, GROUND - GOAL_TOP + BAR_H);
     ctx.restore();
   }
-  function drawPlayer(p) {
+  function drawPlayer(p, side) {
     // shadow
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND, 30, 6, 0, 0, 7); ctx.fill();
     // body
@@ -361,30 +658,12 @@
     // foot
     const f = footPos(p);
     ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.ellipse(f.x, f.y, 14, 8, p.dir * (p.kickT > 0 ? -0.5 : 0), 0, 7); ctx.fill();
-    // head
-    if (p === p1 && faceImg) {
-      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.clip();
-      ctx.drawImage(faceImg, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2); ctx.restore();
-      ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.stroke();
-    } else drawCartoonFace(p);
+    drawHead(ctx, heads[side], p.x, p.y, p.r, p.dir, ball, p.color, faces[side]);
     if (p.ash > 0) drawAsh(p);
-  }
-  function drawCartoonFace(p) {
-    ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2; ctx.stroke();
-    // hair
-    ctx.fillStyle = p === p1 ? '#3e2723' : '#212121';
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
-    // headband
-    ctx.fillStyle = p.color; ctx.fillRect(p.x - p.r + 3, p.y - 16, p.r * 2 - 6, 7);
-    // eye looking at ball
-    const ex = p.x + p.dir * 14, ey = p.y - 2;
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, 7); ctx.fill();
-    const a = Math.atan2(ball.y - ey, ball.x - ex);
-    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex + Math.cos(a) * 3.5, ey + Math.sin(a) * 3.5, 4, 0, 7); ctx.fill();
-    // mouth
-    ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 3; ctx.beginPath();
-    ctx.arc(p.x + p.dir * 10, p.y + 14, 7, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+    // mark which one is you in online games
+    if (mode !== 'cpu' && side === mySide) {
+      ctx.fillStyle = '#ffca28'; ctx.beginPath(); ctx.moveTo(p.x - 8, p.y - p.r - 16); ctx.lineTo(p.x + 8, p.y - p.r - 16); ctx.lineTo(p.x, p.y - p.r - 6); ctx.fill();
+    }
   }
   function drawAsh(p) {
     // covered in ash: grey coat, soot blobs, smoke and countdown
@@ -420,25 +699,33 @@
     ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui, sans-serif';
     const t = Math.ceil(timeLeft); ctx.fillText(`${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, W / 2, 35);
     ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.fillStyle = '#64b5f6'; ctx.fillText('YOU', W / 2 - 140, 35);
-    ctx.fillStyle = '#ef9a9a'; ctx.fillText('CPU', W / 2 + 140, 35);
-    if (state === 'goal') {
-      ctx.font = 'bold 64px system-ui, sans-serif'; ctx.lineWidth = 6; ctx.strokeStyle = '#000';
-      ctx.strokeText(banner, W / 2, H / 2 - 30); ctx.fillStyle = '#ffca28'; ctx.fillText(banner, W / 2, H / 2 - 30);
+    const label = s => mode === 'cpu' ? (s ? `CPU · ${HEADS[heads[1]].name}` : 'YOU') : (names[s] + (s === mySide ? ' (you)' : ''));
+    ctx.textAlign = 'right'; ctx.fillStyle = '#64b5f6'; ctx.fillText(label(0).toUpperCase(), W / 2 - 120, 35);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#ef9a9a'; ctx.fillText(label(1).toUpperCase(), W / 2 + 120, 35);
+    ctx.textAlign = 'center';
+    let big = state === 'goal' ? banner : '';
+    if (mode !== 'cpu' && !net.oppOnline && (state === 'play' || state === 'goal')) big = 'Waiting for opponent…';
+    if (big) {
+      ctx.font = `bold ${big.length > 14 ? 44 : 64}px system-ui, sans-serif`; ctx.lineWidth = 6; ctx.strokeStyle = '#000';
+      ctx.strokeText(big, W / 2, H / 2 - 30); ctx.fillStyle = '#ffca28'; ctx.fillText(big, W / 2, H / 2 - 30);
     }
   }
   function draw() {
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - .5) * 16 * shake, (Math.random() - .5) * 16 * shake);
     drawField(); drawGoal(0, false); drawGoal(W, true);
-    drawPlayer(p1); drawPlayer(p2); drawBall(); drawBombs();
+    drawPlayer(p1, 0); drawPlayer(p2, 1); drawBall(); drawBombs();
     ctx.restore(); drawHUD();
   }
 
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(0.033, (now - last) / 1000); last = now;
-    update(dt); draw(); requestAnimationFrame(loop);
+    update(dt);
+    shake = Math.max(0, shake - dt);
+    if (mode === 'host') net.sendState(false);
+    if (mode === 'guest') { if (state === 'play' || state === 'goal') net.sendInput(); smoothGuest(dt); }
+    draw(); requestAnimationFrame(loop);
   }
   resetPositions(1);
   requestAnimationFrame(loop);

@@ -1,4 +1,4 @@
-# Game server for games/poker-live. Deploy with: npx wrangler deploy (from this folder)
+# Game server for games/poker-live and online games/head-soccer. Deploy with: npx wrangler deploy (from this folder)
 name = "poker-live"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
@@ -8,10 +8,18 @@ workers_dev = true
 name = "ROOMS"
 class_name = "PokerRoom"
 
+[[durable_objects.bindings]]
+name = "SOCCER"
+class_name = "SoccerRoom"
+
 # SQLite-backed Durable Objects are included in the free Workers plan
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["PokerRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["SoccerRoom"]
 
 # Optional, for LiveKit video instead of peer-to-peer. Add these as secrets in the Cloudflare
 # dashboard (Worker > Settings > Variables and Secrets): LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
