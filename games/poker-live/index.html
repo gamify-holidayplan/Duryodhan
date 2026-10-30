@@ -1211,7 +1211,8 @@ const V = {
         s.onload = res; s.onerror = rej; document.head.appendChild(s);
       });
       const LK = window.LivekitClient;
-      const room = new LK.Room({ adaptiveStream: true, dynacast: true });
+      // adaptiveStream stays off: it pauses video that isn't in LiveKit's own <video> elements, and the seats use ours
+      const room = new LK.Room({ adaptiveStream: false, dynacast: true });
       const add = (track, part) => {
         let st = this.streams.get(part.identity);
         if (!st) { st = new MediaStream(); this.streams.set(part.identity, st); }

@@ -21,6 +21,10 @@ new_sqlite_classes = ["PokerRoom"]
 tag = "v2"
 new_sqlite_classes = ["SoccerRoom"]
 
+# LiveKit relays the table video. LIVEKIT_API_KEY and LIVEKIT_API_SECRET are secrets set in the dashboard.
+[vars]
+LIVEKIT_URL = "wss://duryodhan-2zow4pq5.livekit.cloud"
+
 # Optional, for LiveKit video instead of peer-to-peer. Add these as secrets in the Cloudflare
 # dashboard (Worker > Settings > Variables and Secrets): LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
 # For video between phones on mobile data, add a Cloudflare TURN key as secrets: TURN_KEY_ID, TURN_KEY_API_TOKEN
