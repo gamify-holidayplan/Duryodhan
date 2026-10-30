@@ -1050,9 +1050,11 @@ const V = {
       }
     }
   },
+  // players in the LiveKit room get video from there; everyone else keeps a direct connection
+  viaLk(id) { return !!(this.lk && this.lk.remoteParticipants && [...this.lk.remoteParticipants.values()].some(p => p.identity === id)); },
   // a seat shows 📶 while its video is still connecting (or can't connect)
   weak(id) {
-    if (this.lk) return false;
+    if (this.viaLk(id)) return false;
     const p = player(id), peer = this.pcs.get(id);
     if (!p || !p.online || !(p.cam || p.mic)) return false;
     if (!peer) return true;
@@ -1062,8 +1064,8 @@ const V = {
   // For each pair of phones the one with the smaller id always makes the offer, so offers never collide.
   // Every connection carries one audio and one video slot; turning a camera on later just swaps the track in.
   syncPeers() {
-    if (this.lk || !S) return;
-    const online = new Set(S.players.filter(p => p.online && p.id !== me).map(p => p.id));
+    if (!S) return;
+    const online = new Set(S.players.filter(p => p.online && p.id !== me && !this.viaLk(p.id)).map(p => p.id));
     for (const id of [...this.pcs.keys()]) if (!online.has(id)) this.closePeer(id);
     const now = Date.now();
     for (const id of online) {
@@ -1075,7 +1077,7 @@ const V = {
   asked: {},
   // connections that stall get restarted: first an ICE restart, then a brand new connection
   watchdog() {
-    if (this.lk || !S) return;
+    if (!S) return;
     const now = Date.now();
     for (const [id, peer] of this.pcs) {
       const st = peer.pc.connectionState;
@@ -1140,7 +1142,7 @@ const V = {
   },
   signal(to, data) { send({ t: 'rtc', to, data: { ...data, sess: this.sess } }); },
   onSignal(from, data) {
-    if (this.lk || !data) return;
+    if (!data || this.viaLk(from)) return;
     let peer = this.pcs.get(from);
     if (data.hi) {
       // they want us to call them; skip it if we're already connected to that same page
@@ -1187,8 +1189,8 @@ const V = {
     if (!await this.startLocal()) { toast("Couldn't access your camera or mic"); return false; }
     this.camOn = false; this.micOn = false;
     for (const tr of this.local.getTracks()) tr.enabled = false;
-    if (this.lk) { for (const tr of this.local.getTracks()) await this.lk.localParticipant.publishTrack(tr).catch(() => {}); }
-    else for (const [, peer] of this.pcs) for (const tr of peer.pc.getTransceivers()) {
+    if (this.lk) for (const tr of this.local.getTracks()) await this.lk.localParticipant.publishTrack(tr).catch(() => {});
+    for (const [, peer] of this.pcs) for (const tr of peer.pc.getTransceivers()) {
       const t = this.track(tr.receiver.track.kind);
       if (t) await tr.sender.replaceTrack(t).catch(() => {});
     }
@@ -1212,7 +1214,7 @@ const V = {
       });
       const LK = window.LivekitClient;
       // adaptiveStream stays off: it pauses video that isn't in LiveKit's own <video> elements, and the seats use ours
-      const room = new LK.Room({ adaptiveStream: false, dynacast: true });
+      const room = this._room = new LK.Room({ adaptiveStream: false, dynacast: true });
       const add = (track, part) => {
         let st = this.streams.get(part.identity);
         if (!st) { st = new MediaStream(); this.streams.set(part.identity, st); }
@@ -1223,13 +1225,20 @@ const V = {
       };
       room.on(LK.RoomEvent.TrackSubscribed, (track, pub, part) => add(track, part));
       room.on(LK.RoomEvent.TrackUnsubscribed, (track, pub, part) => { const st = this.streams.get(part.identity); if (st) st.removeTrack(track.mediaStreamTrack); });
-      room.on(LK.RoomEvent.ParticipantDisconnected, part => this.closePeer(part.identity));
-      await room.connect(info.url, info.token);
-      for (const id of [...this.pcs.keys()]) this.closePeer(id); // LiveKit takes over from peer-to-peer
+      // someone joins LiveKit: their video moves over from the direct connection
+      room.on(LK.RoomEvent.ParticipantConnected, part => { if (this.pcs.has(part.identity)) this.closePeer(part.identity); });
+      // someone drops out of LiveKit: go back to a direct connection if they're still at the table
+      room.on(LK.RoomEvent.ParticipantDisconnected, part => { this.closePeer(part.identity); setTimeout(() => this.syncPeers(), 500); });
+      // give up after 15 seconds (some networks block LiveKit) and stay peer-to-peer
+      let timer;
+      await Promise.race([room.connect(info.url, info.token), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('LiveKit connect timed out')), 15000); })]);
+      clearTimeout(timer);
       this.lk = room;
+      for (const part of room.remoteParticipants.values()) if (this.pcs.has(part.identity)) this.closePeer(part.identity);
       if (this.local) for (const tr of this.local.getTracks()) await room.localParticipant.publishTrack(tr);
     } catch (e) {
       console.warn('LiveKit unavailable, using peer-to-peer video', e);
+      try { if (window.LivekitClient && this._room) this._room.disconnect(); } catch (err) {}
       this.lk = null; this.lkFailed = true; this.syncPeers();
     }
   },
