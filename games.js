@@ -81,4 +81,12 @@ window.GAMES = [
     color: ['#7e57c2', '#2a1458'],
     emoji: '✨',
   },
+  {
+    slug: 'gully-dhamaal',
+    title: 'Gully Dhamaal',
+    description: 'Desi street fighter: Pinky Aunty\'s chappal vs Cricket Chacha\'s bat. Punch, kick, combos and supers, vs the computer or a friend online.',
+    tags: ['Fighting', '1-2 players'],
+    color: ['#ff8a3d', '#7a1f00'],
+    emoji: '🥊',
+  },
 ];

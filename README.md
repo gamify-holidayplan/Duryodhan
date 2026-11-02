@@ -30,6 +30,7 @@ games/<slug>/index.html one folder per game
 - **Hold'em Poker** (`/games/texas-holdem/`): no-limit Texas Hold'em vs 5 bots. 4 stake levels, buy-ins, blinds, side pots, saved bankroll with a daily bonus.
 - **Poker Night Live** (`/games/poker-live/`): multiplayer Texas Hold'em with friends over a share link, with live video and voice at each seat. Needs the game server below.
 - **Aura Farm Defense** (`/games/aura-farm/`): lane defense. Plant Aura Blooms, Drip Shooters, Frost Fits, Rizz Rocks and Mog Mines to stop waves of aura-draining NPCs.
+- **Gully Dhamaal** (`/games/gully-dhamaal/`): desi 2D street fighter with six mohalla characters, combos and supers. Vs the computer (3 levels) or a friend online via room code (uses the same room server as Head Soccer).
 
 ## Poker Night Live server
 
