@@ -89,4 +89,12 @@ window.GAMES = [
     color: ['#ff8a3d', '#7a1f00'],
     emoji: '🥊',
   },
+  {
+    slug: 'modi-alien-defense',
+    title: 'Modi Alien Defense',
+    description: 'Defend New Delhi, New York, and London from alien invasions. Equip laser cannons, collect Rupee coins, and defeat massive bosses.',
+    tags: ['Action', 'Arcade', '1 player'],
+    color: ['#ff7700', '#1c2340'],
+    emoji: '🛸',
+  },
 ];
